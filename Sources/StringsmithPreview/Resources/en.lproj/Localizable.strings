@@ -1,0 +1,24 @@
+/* stringsmith preview app UI */
+"action.refresh" = "Refresh";
+"empty.noProjects" = "No projects yet";
+"empty.noProjectsDetail" = "Add a folder that has a .stringsmith.json,\nor run `stringsmith preview` in one.";
+"entry.noTranslation" = "— No translation";
+"entry.variables" = "Variables";
+"error.loadFailed" = "Could not read this project";
+"filter.missingOnly" = "Missing only";
+"filter.showRaw" = "Raw form";
+"filter.variablesOnly" = "With variables";
+"group.other" = "Other";
+"language.all" = "All";
+"language.label" = "Languages";
+"language.reorderHint" = "Drag to reorder";
+"language.resetOrder" = "Reset order";
+"language.sourceOnly" = "Source only";
+"menu.alwaysOnTop" = "Always on Top";
+"project.add" = "Add Project…";
+"project.pickMessage" = "Choose a .stringsmith.json file, or a folder containing one";
+"project.remove" = "Remove";
+"project.rename" = "Rename";
+"project.revealInFinder" = "Reveal in Finder";
+"search.placeholder" = "Search key or text";
+"window.title" = "Translations";

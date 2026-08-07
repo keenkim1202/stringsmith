@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: swift --version
+
+      - name: Build
+        run: swift build
+
+      - name: Test
+        run: swift test
+
+      # 생성 파이프라인이 실제로 도는지 본다. 단위 테스트만으로는
+      # CLI·설정·파일 쓰기가 이어지는 경로를 검증하지 못한다.
+      - name: End-to-end
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          cp Examples/sample-sheet.csv "$work/strings.csv"
+          cd "$work"
+          "$GITHUB_WORKSPACE/.build/debug/stringsmith" init
+          "$GITHUB_WORKSPACE/.build/debug/stringsmith" generate
+          test -f Resources/Localizable.xcstrings
+          test -f Resources/L10n.swift
+          # Apple 도구가 받아들이는 파일인지 확인한다.
+          xcrun xcstringstool compile Resources/Localizable.xcstrings -o "$(mktemp -d)"
+          # 생성된 접근자가 실제로 컴파일되는지 확인한다.
+          swiftc -parse-as-library -typecheck Resources/L10n.swift
+          # 두 번째 실행은 아무것도 바뀌지 않아야 한다 (결정적 출력).
+          "$GITHUB_WORKSPACE/.build/debug/stringsmith" generate | tee out.txt
+          grep -q "변경 없음" out.txt

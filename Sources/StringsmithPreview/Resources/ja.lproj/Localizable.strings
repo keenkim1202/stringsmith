@@ -1,0 +1,24 @@
+/* stringsmith preview app UI */
+"action.refresh" = "更新";
+"empty.noProjects" = "プロジェクトがありません";
+"empty.noProjectsDetail" = ".stringsmith.json のあるフォルダを追加するか、\nそのフォルダで `stringsmith preview` を実行してください。";
+"entry.noTranslation" = "— 翻訳なし";
+"entry.variables" = "変数";
+"error.loadFailed" = "このプロジェクトを読み込めませんでした";
+"filter.missingOnly" = "未翻訳のみ";
+"filter.showRaw" = "元の表記";
+"filter.variablesOnly" = "変数ありのみ";
+"group.other" = "その他";
+"language.all" = "すべて";
+"language.label" = "言語";
+"language.reorderHint" = "ドラッグで並べ替え";
+"language.resetOrder" = "順序をリセット";
+"language.sourceOnly" = "原文のみ";
+"menu.alwaysOnTop" = "常に最前面";
+"project.add" = "プロジェクトを追加…";
+"project.pickMessage" = ".stringsmith.json ファイル、またはそれを含むフォルダを選択してください";
+"project.remove" = "削除";
+"project.rename" = "名前を変更";
+"project.revealInFinder" = "Finder で表示";
+"search.placeholder" = "キーまたはテキストを検索";
+"window.title" = "翻訳の確認";

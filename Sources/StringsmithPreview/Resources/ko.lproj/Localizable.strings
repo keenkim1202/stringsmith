@@ -1,0 +1,24 @@
+/* stringsmith preview app UI */
+"action.refresh" = "갱신";
+"empty.noProjects" = "프로젝트가 없습니다";
+"empty.noProjectsDetail" = ".stringsmith.json 이 있는 폴더를 추가하거나,\n그 폴더에서 `stringsmith preview` 를 실행하세요.";
+"entry.noTranslation" = "— 번역 없음";
+"entry.variables" = "변수";
+"error.loadFailed" = "이 프로젝트를 읽지 못했습니다";
+"filter.missingOnly" = "번역 누락만";
+"filter.showRaw" = "원본 표기";
+"filter.variablesOnly" = "변수 있는 것만";
+"group.other" = "기타";
+"language.all" = "전체";
+"language.label" = "언어";
+"language.reorderHint" = "끌어서 순서 변경";
+"language.resetOrder" = "순서 초기화";
+"language.sourceOnly" = "원문만";
+"menu.alwaysOnTop" = "항상 맨 앞";
+"project.add" = "프로젝트 추가…";
+"project.pickMessage" = ".stringsmith.json 파일이나 그 파일이 든 폴더를 고르세요";
+"project.remove" = "제거";
+"project.rename" = "이름 바꾸기";
+"project.revealInFinder" = "Finder에서 보기";
+"search.placeholder" = "키 또는 문구 검색";
+"window.title" = "번역 확인";

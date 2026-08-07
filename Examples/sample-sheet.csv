@@ -1,0 +1,12 @@
+이 시트는 stringsmith 예제입니다. 헤더는 2행에 있습니다.,,,,,
+키,화면,설명,한국어,영어,일본어
+settings.title,설정,설정 화면 상단 제목,설정,Settings,設定
+settings.notification,설정,알림 설정 진입 항목,알림 설정,Notifications,通知設定
+cart.empty,장바구니,상품이 하나도 없을 때 안내,장바구니가 비었습니다,Your cart is empty,カートは空です
+cart.itemCount,장바구니,이름과 개수를 함께 표시. 영어는 어순이 뒤집힌다,{name}님의 상품 {count}개,{count} items for {name},{name}さんの商品{count}点
+cart.greeting,장바구니,변수 하나뿐이라 위치 번호가 붙지 않는다,{name}님 안녕하세요,Hello {name},{name}さん、こんにちは
+promo.discount,프로모션,리터럴 퍼센트가 섞인 경우,{name}님께 50% 할인,50% off for {name},{name}さんに50%オフ
+,,,,,
+common.confirm,공통,확인 버튼,확인,Confirm,確認
+common.cancel,공통,취소 버튼,취소,Cancel,
+alert.deleteTitle,알림,"쉼표, 따옴표 테스트","정말 ""삭제""하시겠습니까?","Delete this, really?",本当に削除しますか？

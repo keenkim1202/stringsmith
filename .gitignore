@@ -1,0 +1,11 @@
+.DS_Store
+.build/
+.swiftpm/
+*.xcodeproj
+*.xcworkspace
+DerivedData/
+.netrc
+
+# 예제 실행 산출물
+Examples/out/
+.stringsmith.json

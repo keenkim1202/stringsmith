@@ -1,0 +1,88 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "만들 태그 (예: v0.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        run: |
+          set -euo pipefail
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+
+      # 태그와 `stringsmith --version` 이 어긋난 채 배포되면
+      # 받은 사람이 어떤 버전인지 알 수 없다. 여기서 막는다.
+      - name: Check version matches tag
+        run: |
+          set -euo pipefail
+          version="${{ steps.version.outputs.version }}"
+          if ! grep -q "version: \"$version\"" Sources/stringsmith/Stringsmith.swift; then
+            echo "::error::Sources/stringsmith/Stringsmith.swift 의 version 이 태그($version)와 다릅니다."
+            grep -n 'version: "' Sources/stringsmith/Stringsmith.swift || true
+            exit 1
+          fi
+
+      - name: Show toolchain
+        run: swift --version
+
+      - name: Test
+        run: swift test
+
+      - name: Build release artifacts
+        run: make release VERSION="${{ steps.version.outputs.version }}"
+
+      - name: Write release notes
+        run: |
+          cat > release-notes.md <<'NOTES'
+          ## 설치
+
+          ### 번역 확인 앱
+
+          `StringsmithPreview-macOS.zip` 을 받아 압축을 풀고 `~/Applications` 또는
+          `/Applications` 에 넣으세요.
+
+          > **서명되지 않은 앱입니다.** 처음 열 때 macOS 가 막습니다. 다음 한 줄로 해제하세요:
+          >
+          > ```bash
+          > xattr -dr com.apple.quarantine ~/Applications/StringsmithPreview.app
+          > ```
+
+          ### CLI
+
+          ```bash
+          tar -xzf stringsmith-macOS.tar.gz
+          sudo mv stringsmith /usr/local/bin/
+          sudo ln -sf /usr/local/bin/stringsmith /usr/local/bin/ss
+          xattr -dr com.apple.quarantine /usr/local/bin/stringsmith
+          ```
+
+          Intel · Apple Silicon 유니버설 바이너리입니다. macOS 13 이상이 필요합니다.
+          NOTES
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "${{ steps.version.outputs.tag }}" \
+            --title "${{ steps.version.outputs.tag }}" \
+            --notes-file release-notes.md \
+            --generate-notes \
+            .build/dist/StringsmithPreview-macOS.zip \
+            .build/dist/stringsmith-macOS.tar.gz
