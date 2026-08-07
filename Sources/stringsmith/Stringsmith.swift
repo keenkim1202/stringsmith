@@ -334,9 +334,9 @@ extension Stringsmith {
                     "\(result.conversions.count) variable conversions:",
                     "변수 변환 \(result.conversions.count)건:"))
                 for conversion in shown {
-                    print("  \(conversion.key) [\(conversion.locale)]")
-                    print("    - \(conversion.before)")
-                    print("    + \(conversion.after)")
+                    print("  " + Terminal.dim("\(conversion.key) [\(conversion.locale)]"))
+                    print("    " + Terminal.removed("- \(conversion.before)"))
+                    print("    " + Terminal.added("+ \(conversion.after)"))
                 }
                 if shown.count < result.conversions.count {
                     let rest = result.conversions.count - shown.count

@@ -111,6 +111,9 @@ Translators never have to think about `%1$`/`%2$` — the part they break most o
 - `"50% off"` is not a variable. (`% o` is technically a valid printf specifier; localization
   strings never use it that way.)
 
+Conversions print as a red/green diff when the output is a terminal. Set `NO_COLOR` to turn that
+off, or `FORCE_COLOR` to keep it through a pipe.
+
 Values are validated before anything is written — missing variables, extras that aren't in the
 source, unnamed specifiers that can't survive reordering. **Every change is printed**, and
 `-n` shows it before touching files.

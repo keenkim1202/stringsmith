@@ -56,6 +56,19 @@ jobs:
           STRINGSMITH_LANG=en "$GITHUB_WORKSPACE/.build/debug/stringsmith" generate | grep -q "unchanged"
           STRINGSMITH_LANG=ko "$GITHUB_WORKSPACE/.build/debug/stringsmith" generate | grep -q "변경 없음"
 
+          # 파이프로 내보낼 때 색 이스케이프가 섞이면 로그·비교가 깨진다.
+          ss="$GITHUB_WORKSPACE/.build/debug/stringsmith"
+          if "$ss" generate | grep -q $'\033'; then
+            echo "::error::파이프 출력에 ANSI 이스케이프가 섞였습니다"
+            exit 1
+          fi
+          FORCE_COLOR=1 "$ss" generate | grep -q $'\033' || {
+            echo "::error::FORCE_COLOR 인데 색이 나오지 않았습니다"; exit 1; }
+          if NO_COLOR=1 FORCE_COLOR=1 "$ss" generate | grep -q $'\033'; then
+            echo "::error::NO_COLOR 가 FORCE_COLOR 를 이기지 못했습니다"
+            exit 1
+          fi
+
       # 파서·변수 변환·코드 생성의 까다로운 경우를 모아둔 시트. 회귀를 여기서 잡는다.
       - name: Edge cases
         run: |
