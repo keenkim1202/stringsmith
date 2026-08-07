@@ -6,6 +6,9 @@ VERSION ?= 0.1.0
 APP_NAME   = StringsmithPreview
 APP_BUNDLE = .build/$(APP_NAME).app
 DIST       = .build/dist
+ARM_DIR    = .build/arch-arm64
+X86_DIR    = .build/arch-x86_64
+FAT_DIR    = .build/universal
 
 # 기본은 현재 아키텍처만 빌드한다. `make release` 는 유니버설로 다시 잡는다.
 BUILD_DIR ?= .build/release
@@ -19,8 +22,24 @@ build:
 
 ## Intel·Apple Silicon 양쪽에서 도는 유니버설 바이너리.
 ## 배포본은 받는 쪽 기기를 고를 수 없으므로 이쪽을 쓴다.
+##
+## 한 번의 `--arch arm64 --arch x86_64` 호출은 Xcode 빌드 시스템을 타는데,
+## 타깃이 여럿인 이 패키지에서는 Xcode 버전에 따라 "duplicate output file" 로 깨진다.
+## 아키텍처별로 따로 빌드해 lipo 로 합치면 평범한 SwiftPM 경로만 쓰므로 안정적이다.
 universal:
-	swift build -c release --arch arm64 --arch x86_64
+	swift build -c release --arch arm64  --scratch-path "$(ARM_DIR)"
+	swift build -c release --arch x86_64 --scratch-path "$(X86_DIR)"
+	rm -rf "$(FAT_DIR)" && mkdir -p "$(FAT_DIR)"
+	@# 리소스 번들은 아키텍처와 무관하므로 한쪽 것을 그대로 쓴다.
+	cp -R "$(ARM_DIR)/arm64-apple-macosx/release/"*.bundle "$(FAT_DIR)/" 2>/dev/null || true
+	lipo -create \
+		"$(ARM_DIR)/arm64-apple-macosx/release/stringsmith" \
+		"$(X86_DIR)/x86_64-apple-macosx/release/stringsmith" \
+		-output "$(FAT_DIR)/stringsmith"
+	lipo -create \
+		"$(ARM_DIR)/arm64-apple-macosx/release/$(APP_NAME)" \
+		"$(X86_DIR)/x86_64-apple-macosx/release/$(APP_NAME)" \
+		-output "$(FAT_DIR)/$(APP_NAME)"
 
 ## 미리보기 앱을 .app 번들로 감싼다.
 ##
@@ -93,17 +112,16 @@ install-app: build app
 ## `.app` 은 ditto 로 압축한다. zip 은 번들의 심볼릭 링크·확장 속성을 망가뜨린다.
 release:
 	$(MAKE) universal
-	$(MAKE) app BUILD_DIR=.build/apple/Products/Release
+	$(MAKE) app BUILD_DIR=$(FAT_DIR)
 	rm -rf "$(DIST)" && mkdir -p "$(DIST)"
 	ditto -c -k --keepParent "$(APP_BUNDLE)" "$(DIST)/$(APP_NAME)-macOS.zip"
-	tar -czf "$(DIST)/stringsmith-macOS.tar.gz" \
-		-C .build/apple/Products/Release stringsmith
+	tar -czf "$(DIST)/stringsmith-macOS.tar.gz" -C "$(FAT_DIR)" stringsmith
 	@echo ""
 	@echo "  ✅ $(DIST)"
 	@ls -lh "$(DIST)" | tail -n +2 | awk '{printf "     %s  %s\n", $$9, $$5}'
 	@echo ""
 	@echo "  아키텍처 확인:"
-	@lipo -archs .build/apple/Products/Release/stringsmith | sed 's/^/     stringsmith: /'
+	@lipo -archs "$(FAT_DIR)/stringsmith" | sed 's/^/     stringsmith: /'
 	@lipo -archs "$(APP_BUNDLE)/Contents/MacOS/$(APP_NAME)" | sed 's/^/     $(APP_NAME): /'
 
 uninstall:
