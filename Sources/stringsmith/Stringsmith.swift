@@ -4,6 +4,12 @@ import StringsmithCore
 
 @main
 struct Stringsmith: ParsableCommand {
+    /// 파이프로 내보낼 때 stdout 은 블록 버퍼링이라 stderr 로 나가는 오류보다 늦게 보인다.
+    /// 진행 메시지와 오류의 순서가 뒤집히면 읽는 사람이 혼란스러우므로 줄 단위로 흘린다.
+    static func configureBuffering() {
+        setvbuf(stdout, nil, _IOLBF, 0)
+    }
+
     static let configuration = CommandConfiguration(
         commandName: "stringsmith",
         abstract: tr(
@@ -47,7 +53,15 @@ extension Stringsmith {
             "CSV 또는 TSV 파일 경로. 생략하면 현재 디렉터리에서 찾습니다.")))
         var sheet: String?
 
-        @Option(name: [.short, .long], help: .init(stringLiteral: tr(
+        @Option(
+            name: .long,
+            help: .init(stringLiteral: tr(
+                "Google Sheets share URL. Reads the sheet instead of a local file.",
+                "Google Sheets 공유 URL. 로컬 파일 대신 이 시트를 읽습니다.")))
+        var url: String?
+
+        // `.short` 는 -h 가 되어 --help 와 충돌한다. -r 로 명시한다.
+        @Option(name: [.customShort("r"), .long], help: .init(stringLiteral: tr(
             "Header row number, 1-based. Detected automatically if omitted.",
             "헤더가 있는 행 번호 (1부터). 생략하면 자동 감지합니다.")))
         var headerRow: Int?
@@ -78,6 +92,7 @@ extension Stringsmith {
         var force: Bool = false
 
         func run() throws {
+            Stringsmith.configureBuffering()
             if FileManager.default.fileExists(atPath: config), !force {
                 throw CLIError(tr(
                     """
@@ -90,9 +105,21 @@ extension Stringsmith {
                     """))
             }
 
-            let sheet = try resolveSheet()
-            let rows = try CSVParser.forFile(at: sheet).parseFile(at: sheet)
-            guard !rows.isEmpty else { throw StringsmithError.emptySheet(path: sheet) }
+            // URL 을 주면 그 자리에서 받아 헤더를 읽는다. 파일을 먼저 내려받지 않아도 된다.
+            let sourceConfig: SourceConfig
+            let rows: [[String]]
+            if let url {
+                print("ℹ️ " + tr("Fetching the sheet…", "시트를 가져오는 중…"))
+                rows = try GoogleSheetsSource(url: url).rows()
+                sourceConfig = SourceConfig(
+                    type: "google-sheets", url: url, headerRow: 1, defaultLocale: "")
+                guard !rows.isEmpty else { throw StringsmithError.emptySheet(path: url) }
+            } else {
+                let sheet = try resolveSheet()
+                rows = try CSVParser.forFile(at: sheet).parseFile(at: sheet)
+                guard !rows.isEmpty else { throw StringsmithError.emptySheet(path: sheet) }
+                sourceConfig = SourceConfig(path: sheet, headerRow: 1, defaultLocale: "")
+            }
 
             let headerRow = try resolveHeaderRow(in: rows)
             guard headerRow >= 1, headerRow <= rows.count else {
@@ -126,12 +153,14 @@ extension Stringsmith {
             // 설정 안의 경로는 **설정 파일 위치 기준**으로 저장한다.
             // 그래야 저장소 어디서 실행하든, 다른 사람이 클론해도 같게 동작한다.
             let configDirectory = (config as NSString).deletingLastPathComponent
+            var source = sourceConfig
+            source.headerRow = headerRow
+            source.defaultLocale = locale
+            if source.type == "csv" {
+                source.path = PathUtil.relative(from: configDirectory, to: source.path)
+            }
             let configuration = Configuration(
-                source: SourceConfig(
-                    path: PathUtil.relative(from: configDirectory, to: sheet),
-                    headerRow: headerRow,
-                    defaultLocale: locale
-                ),
+                source: source,
                 columns: mapping,
                 output: OutputConfig(
                     artifacts: artifacts,
@@ -306,6 +335,7 @@ extension Stringsmith {
         var only: [String] = []
 
         func run() throws {
+            Stringsmith.configureBuffering()
             let config = try Stringsmith.resolveConfigPath(self.config)
             let configuration = try Configuration.load(from: config)
             let base = (config as NSString).deletingLastPathComponent

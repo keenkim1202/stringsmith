@@ -54,6 +54,23 @@ make install-app    # 앱  → ~/Applications/StringsmithPreview.app
 예제 시트가 두 개 들어 있습니다. `Examples/sample-sheet.csv`(간단한 둘러보기)와
 `Examples/edge-cases.csv`(파서·변수·코드 생성의 까다로운 경우 — CI가 결과를 검사합니다).
 
+## Google Sheets 에서 읽기
+
+```bash
+ss init --url "https://docs.google.com/spreadsheets/d/{ID}/edit#gid=0"
+ss generate
+```
+
+실행할 때마다 시트를 가져오므로 CSV를 손으로 다시 받을 필요가 없습니다. URL의 `gid`가 탭을
+가리키고, 설정의 `"gid"` 로 덮어쓸 수 있습니다.
+
+마지막으로 성공한 응답은 `.stringsmith/cache/` 에 남습니다. 네트워크가 안 되면 캐시로 진행하며
+경고를 냅니다 — 오프라인이라고 빌드가 멈추면 곤란하니까요.
+
+> **지금은 "링크가 있는 모든 사용자" 로 공유된 시트만 됩니다.** 조직 제한 시트는 로그인 안내
+> 페이지를 돌려주는데, stringsmith가 파싱 오류 대신 그 사실을 알려줍니다. Google 계정 로그인
+> (OAuth) 은 아직 구현하지 않았습니다.
+
 ## 시트 형태
 
 | 키 | 화면 | 설명 | 한국어 | 영어 |
@@ -146,6 +163,7 @@ ss preview            # 확인 앱에서 열기
 | 옵션 | 명령 | 뜻 |
 |---|---|---|
 | `-o` `--output` | init | 산출물 디렉터리 (기본 `Resources`) |
+| `--url` | init | Google Sheets 공유 URL |
 | `-r` `--header-row` | init | 헤더 행 번호 (1부터) |
 | `-s` `--source-locale` | init | 원문 로케일 |
 | `--artifacts` | init | `xcstrings` · `swift` |
@@ -178,6 +196,7 @@ ss preview            # 확인 앱에서 열기
 
 | 키 | 값 |
 |---|---|
+| `source.type` | `csv` · `google-sheets` |
 | `output.swift.namespace` | `keyPrefix` · `screen` · `none` |
 | `output.swift.bundle` | `main` · `module` (SPM 리소스) |
 | `placeholders.syntax` | `apple` · `brace` · `xml` |

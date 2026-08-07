@@ -9,3 +9,4 @@ DerivedData/
 # 예제 실행 산출물
 Examples/out/
 .stringsmith.json
+.stringsmith/

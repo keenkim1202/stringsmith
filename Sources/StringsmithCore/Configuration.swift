@@ -36,18 +36,31 @@ public struct Configuration: Codable, Sendable, Equatable {
 }
 
 public struct SourceConfig: Codable, Sendable, Equatable {
-    /// v0.1은 "csv"(TSV 포함)만 지원한다. xlsx·google-sheets는 이후 버전.
+    /// `csv`(TSV 포함) 또는 `google-sheets`.
     public var type: String
-    /// 설정 파일 위치 기준 상대 경로 또는 절대 경로.
+    /// `csv` 일 때 시트 파일 경로. 설정 파일 위치 기준 상대 경로 또는 절대 경로.
     public var path: String
+    /// `google-sheets` 일 때 공유 URL. 시트 ID 만 적어도 된다.
+    public var url: String?
+    /// 탭 식별자. URL 에 `gid=` 가 있으면 생략해도 된다.
+    public var gid: String?
     /// 헤더가 있는 행 번호(1-based). 시트 위쪽에 제목·안내 행이 있는 경우가 많다.
     public var headerRow: Int
     /// 원문 로케일. `.xcstrings`의 sourceLanguage가 된다.
     public var defaultLocale: String
 
-    public init(type: String = "csv", path: String, headerRow: Int = 1, defaultLocale: String) {
+    public init(
+        type: String = "csv",
+        path: String = "",
+        url: String? = nil,
+        gid: String? = nil,
+        headerRow: Int = 1,
+        defaultLocale: String
+    ) {
         self.type = type
         self.path = path
+        self.url = url
+        self.gid = gid
         self.headerRow = headerRow
         self.defaultLocale = defaultLocale
     }
@@ -55,7 +68,9 @@ public struct SourceConfig: Codable, Sendable, Equatable {
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         type = try c.decodeIfPresent(String.self, forKey: .type) ?? "csv"
-        path = try c.decode(String.self, forKey: .path)
+        path = try c.decodeIfPresent(String.self, forKey: .path) ?? ""
+        url = try c.decodeIfPresent(String.self, forKey: .url)
+        gid = try c.decodeIfPresent(String.self, forKey: .gid)
         headerRow = try c.decodeIfPresent(Int.self, forKey: .headerRow) ?? 1
         defaultLocale = try c.decode(String.self, forKey: .defaultLocale)
     }

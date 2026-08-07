@@ -38,11 +38,33 @@ public struct Pipeline: Sendable {
 
     // MARK: - 읽기
 
+    /// 설정이 가리키는 시트 소스를 만든다.
+    public func makeSource() throws -> SheetSource {
+        switch configuration.source.type {
+        case "google-sheets":
+            guard let url = configuration.source.url, !url.isEmpty else {
+                throw StringsmithError.invalidConfiguration(
+                    path: configuration.source.path,
+                    reason: tr(
+                        "source.type is \"google-sheets\" but source.url is missing.",
+                        "source.type 이 \"google-sheets\" 인데 source.url 이 없습니다."))
+            }
+            return GoogleSheetsSource(
+                url: url,
+                gid: configuration.source.gid,
+                // 네트워크가 안 될 때 쓸 마지막 사본. 생성물이 아니므로 .stringsmith 아래 둔다.
+                cachePath: resolve(".stringsmith/cache/sheet.csv")
+            )
+        default:
+            return LocalFileSource(path: resolve(configuration.source.path))
+        }
+    }
+
     /// 시트를 읽어 테이블을 만든다. 검증 실패는 여기서 던진다.
     public func loadTable() throws -> LocalizationTable {
-        let path = resolve(configuration.source.path)
-        let parser = CSVParser.forFile(at: path)
-        let rows = try parser.parseFile(at: path)
+        let source = try makeSource()
+        let path = configuration.source.url ?? resolve(configuration.source.path)
+        let rows = try source.rows()
 
         guard !rows.isEmpty else {
             throw StringsmithError.emptySheet(path: path)

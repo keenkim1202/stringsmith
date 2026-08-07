@@ -54,6 +54,23 @@ make install-app    # App → ~/Applications/StringsmithPreview.app
 Two example sheets ship with the repo: `Examples/sample-sheet.csv` (a small tour) and
 `Examples/edge-cases.csv` (parser, variable, and codegen corner cases — CI checks its output).
 
+## Reading from Google Sheets
+
+```bash
+ss init --url "https://docs.google.com/spreadsheets/d/{ID}/edit#gid=0"
+ss generate
+```
+
+The sheet is fetched on every run, so there is no CSV to re-download by hand. A `gid` in the URL
+selects the tab; add `"gid"` to the config to override it.
+
+The last successful response is cached under `.stringsmith/cache/`. If the network is unreachable,
+the cached copy is used and a warning is printed — a build should not stop because you are offline.
+
+> **Only sheets shared as "Anyone with the link can view" work today.** A sheet restricted to your
+> organization returns a sign-in page, and stringsmith reports that instead of failing on a parse
+> error. Signing in with your Google account (OAuth) is not implemented yet.
+
 ## Sheet format
 
 | key | screen | description | ko | en |
@@ -150,6 +167,7 @@ locale on its own. `.stringsmith.json` is found by walking up from the current d
 | Option | Command | Meaning |
 |---|---|---|
 | `-o` `--output` | init | Output directory (default `Resources`) |
+| `--url` | init | Google Sheets share URL |
 | `-r` `--header-row` | init | Header row number, 1-based |
 | `-s` `--source-locale` | init | Source locale |
 | `--artifacts` | init | `xcstrings` · `swift` |
@@ -182,6 +200,7 @@ Paths are relative to the config file, so it works from anywhere in the repo.
 
 | Key | Values |
 |---|---|
+| `source.type` | `csv` · `google-sheets` |
 | `output.swift.namespace` | `keyPrefix` · `screen` · `none` |
 | `output.swift.bundle` | `main` · `module` (SPM resources) |
 | `placeholders.syntax` | `apple` · `brace` · `xml` |

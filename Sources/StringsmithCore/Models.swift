@@ -148,9 +148,10 @@ extension StringsmithError: CustomStringConvertible {
                 "설정 파일을 읽을 수 없습니다: \(path)\n  \(reason)")
 
         case let .io(path, reason):
+            // 파일뿐 아니라 URL 에도 쓰이므로 중립적으로 적는다.
             return tr(
-                "File operation failed: \(path)\n  \(reason)",
-                "파일 처리 실패: \(path)\n  \(reason)")
+                "Could not read: \(path)\n  \(reason)",
+                "읽지 못했습니다: \(path)\n  \(reason)")
         }
     }
 }
