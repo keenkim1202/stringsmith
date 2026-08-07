@@ -214,4 +214,11 @@ CI runs tests plus an end-to-end check (generate → Apple's compiler accepts it
 
 ## License
 
-[MIT](LICENSE)
+Dual licensed under either of
+
+- [Apache License 2.0](LICENSE-APACHE)
+- [MIT license](LICENSE-MIT)
+
+at your option. MIT is short and familiar; Apache-2.0 adds an explicit patent grant that some
+organizations require. Unless you state otherwise, contributions you submit are dual licensed the
+same way, with no additional terms.

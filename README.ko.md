@@ -208,4 +208,10 @@ CI가 푸시·PR마다 테스트와 end-to-end 검증(생성 → Apple 도구가
 
 ## 라이선스
 
-[MIT](LICENSE)
+아래 둘 중 하나를 **골라서** 쓰면 됩니다.
+
+- [Apache License 2.0](LICENSE-APACHE)
+- [MIT license](LICENSE-MIT)
+
+MIT는 짧고 익숙하며, Apache-2.0은 명시적 특허 허여가 있어 이를 요구하는 조직에서 유리합니다.
+따로 밝히지 않는 한, 기여하신 내용도 같은 방식으로 이중 라이선스가 적용됩니다.
