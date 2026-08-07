@@ -60,7 +60,9 @@ extension Stringsmith {
         @Option(name: [.short, .long], help: .init(stringLiteral: tr("Output directory.", "산출물을 쓸 디렉터리.")))
         var output: String = "Resources"
 
-        @Option(name: [.short, .long], help: "설정 파일 경로.")
+        @Option(
+            name: [.short, .long],
+            help: .init(stringLiteral: tr("Config path.", "설정 파일 경로.")))
         var config: String = Configuration.defaultFileName
 
         @Option(
@@ -386,7 +388,11 @@ extension Stringsmith {
                 """)
         )
 
-        @Option(name: [.short, .long], help: "설정 파일 경로. 생략하면 상위 디렉터리까지 찾습니다.")
+        @Option(
+            name: [.short, .long],
+            help: .init(stringLiteral: tr(
+                "Config path. Searched upward from here if omitted.",
+                "설정 파일 경로. 생략하면 상위 디렉터리까지 찾습니다.")))
         var config: String?
 
         func run() throws {

@@ -158,9 +158,12 @@ public struct Pipeline: Sendable {
         for locale in table.locales where locale != sourceLocale {
             let missing = table.entries.filter { ($0.values[locale] ?? "").isEmpty }
             if !missing.isEmpty {
+                let examples = missing.prefix(3).map(\.key).joined(separator: ", ")
                 warnings.append(
-                    "\(locale): 번역 \(missing.count)/\(table.entries.count)건 누락"
-                        + " (예: \(missing.prefix(3).map(\.key).joined(separator: ", ")))"
+                    tr(
+                        "\(locale): \(missing.count)/\(table.entries.count) translations missing",
+                        "\(locale): 번역 \(missing.count)/\(table.entries.count)건 누락")
+                        + tr(" (e.g. \(examples))", " (예: \(examples))")
                 )
             }
         }
@@ -174,7 +177,10 @@ public struct Pipeline: Sendable {
                 )
                 let result = codegen.generate(table: table)
                 for collision in result.collisions {
-                    warnings.append("Swift 이름 충돌로 접미사를 붙였습니다: \(collision)")
+                    warnings.append(
+                        tr(
+                            "Name collision, suffixed: \(collision)",
+                            "Swift 이름 충돌로 접미사를 붙였습니다: \(collision)"))
                 }
                 let path = resolve(
                     configuration.output.path + "/" + configuration.output.swift.enumName + ".swift"
@@ -211,7 +217,10 @@ public struct Pipeline: Sendable {
                 }
 
             default:
-                warnings.append("알 수 없는 산출물 \"\(artifact)\" 는 건너뜁니다.")
+                warnings.append(
+                    tr(
+                        "Skipping unknown artifact \"\(artifact)\".",
+                        "알 수 없는 산출물 \"\(artifact)\" 는 건너뜁니다."))
             }
         }
 
