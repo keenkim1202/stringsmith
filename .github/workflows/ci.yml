@@ -94,3 +94,39 @@ jobs:
           check 'static var `default`: String' "$gen"
           check 'helloWorld2' "$gen"
           check 'static var _1st: String' "$gen"
+
+  # 릴리스에서 쓰는 유니버설 빌드를 **배포 없이** 검증한다.
+  #
+  # 한 번의 --arch arm64 --arch x86_64 호출이 러너의 Xcode 에서 깨진 적이 있는데,
+  # 로컬 Xcode 에서는 통과해 릴리스 때가 되어서야 드러났다. 여기서 미리 잡는다.
+  release-build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build universal artifacts
+        run: make release VERSION=0.0.0-ci
+
+      - name: Check the artifacts actually work
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          cd "$work"
+          tar -xzf "$GITHUB_WORKSPACE/.build/dist/stringsmith-macOS.tar.gz"
+          ./stringsmith --version
+          lipo -archs ./stringsmith | tee archs.txt
+          grep -q x86_64 archs.txt && grep -q arm64 archs.txt
+
+          ditto -x -k "$GITHUB_WORKSPACE/.build/dist/StringsmithPreview-macOS.zip" .
+          test -f StringsmithPreview.app/Contents/MacOS/StringsmithPreview
+          test -f StringsmithPreview.app/Contents/Info.plist
+          for lang in en ko ja; do
+            test -d "StringsmithPreview.app/Contents/Resources/stringsmith_StringsmithPreview.bundle/$lang.lproj"
+          done
+          lipo -archs StringsmithPreview.app/Contents/MacOS/StringsmithPreview
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: .build/dist/*
+          retention-days: 7
