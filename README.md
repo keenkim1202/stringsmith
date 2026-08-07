@@ -51,6 +51,9 @@ make install-app    # App → ~/Applications/StringsmithPreview.app
 
 `PREFIX=~/.local` and `APPDIR=/Applications` override the destinations. No `xattr` needed.
 
+Two example sheets ship with the repo: `Examples/sample-sheet.csv` (a small tour) and
+`Examples/edge-cases.csv` (parser, variable, and codegen corner cases — CI checks its output).
+
 ## Sheet format
 
 | key | screen | description | ko | en |
@@ -103,7 +106,8 @@ Translators never have to think about `%1$`/`%2$` — the part they break most o
 - Nested braces are fine — the **innermost pair** is the variable. For a literal brace, put a
   backslash before the opening one: `\{count}` → `{count}`.
 - `\n` and `\t` become real control characters. `.xcstrings` is JSON, so leaving them as two
-  characters would show `\n` on screen.
+  characters would show `\n` on screen. This applies mid-word too — `C:\notes` becomes a line
+  break followed by `otes`. A backslash is otherwise an ordinary character.
 - `"50% off"` is not a variable. (`% o` is technically a valid printf specifier; localization
   strings never use it that way.)
 
@@ -201,7 +205,7 @@ StringsmithPreview   review app — links the core, reads sheets directly
 ```
 
 ```bash
-make test       # 98 tests
+make test       # 102 tests
 make release    # universal distribution bundle → .build/dist
 ```
 

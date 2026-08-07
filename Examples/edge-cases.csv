@@ -1,0 +1,43 @@
+Notepad — translation sheet (edge cases),,,,,,,
+Header is on row 3. The 'status' column is not mapped and gets reported.,,,,,,,
+key,screen,description,ko,en,ja,de,status
+app_name,Common,App name,메모장,Notepad,メモ帳,Notizblock,done
+common_ok,Common,,확인,OK,OK,OK,done
+common_cancel,Common,Missing ja on purpose,취소,Cancel,,Abbrechen,wip
+common_default,Common,Swift keyword,기본값,Default,デフォルト,Standard,done
+common_return,Common,Swift keyword,돌아가기,Return,戻る,Zurück,done
+common_class,Common,Swift keyword,분류,Class,分類,Klasse,done
+,,,,,,,
+note_count,Notes,One variable — stays %@,메모 {count}개,{count} notes,メモ{count}件,{count} Notizen,done
+note_sharedBy,Notes,"Two variables, reordered in en/de",{name}님이 메모 {count}개를 공유했습니다,{count} notes shared by {name},{name}さんがメモ{count}件を共有しました,{name} hat {count} Notizen geteilt,done
+note_welcomeBack,Notes,"Same variable twice — one argument, reused","{name}님, 다시 오신 걸 환영해요 {name}님","Hello {name}, welcome back {name}",{name}さん、おかえりなさい{name}さん,"Hallo {name}, willkommen zurück {name}",done
+note_legacySpecifier,Notes,"Sheet already uses %@ / %d — unnamed, warns (V1c)",%@님의 메모 %d개,%@'s notes: %d,%@さんのメモ%d件,%@: %d Notizen,legacy
+note_alreadyPositional,Notes,Sheet already positional — respected,%1$@ / %2$@,%2$@ / %1$@,%1$@ / %2$@,%1$@ / %2$@,legacy
+promo_discount,Promo,Literal percent next to a variable,{name}님께 50% 할인,50% off for {name},{name}さんに50%オフ,50% Rabatt für {name},done
+promo_progress,Promo,%% is a literal percent,진행률 100%% 완료,100%% complete,100%% 完了,100%% abgeschlossen,done
+format_literalBrace,Format,Backslash escapes the opening brace,예시 형식: \{name},Format example: \{name},書式例: \{name},Formatbeispiel: \{name},done
+format_backslashBrace,Format,Leading backslash is an ordinary character,경로 \\{root},Path \\{root},パス \\{root},Pfad \\{root},done
+format_nestedBrace,Format,Innermost pair is the variable,{{count}}개 항목,{{count}} items,{{count}}件,{{count}} Einträge,done
+format_backslashText,Format,"A backslash is ordinary — except before {, n, or t",위치: C:\backup\data,Location: C:\backup\data,場所: C:\backup\data,Ort: C:\backup\data,done
+format_escapeCollision,Format,"Careful: \n and \t are always control characters, even mid-word",줄바꿈은 \n 으로 적습니다,Write a line break as \n,改行は \n と書きます,Zeilenumbruch als \n,done
+alert_multiline,Alert,\n becomes a real newline,저장하지 않은 변경이 있습니다.\n계속하시겠습니까?,You have unsaved changes.\nContinue?,保存されていない変更があります。\n続けますか？,Es gibt ungespeicherte Änderungen.\nFortfahren?,done
+alert_tabbed,Alert,\t becomes a tab,이름\t값,Name\tValue,名前\t値,Name\tWert,done
+,,,,,,,
+csv_comma,Parsing,Quoted comma,"안녕, 세계","Hello, world",こんにちは、世界,"Hallo, Welt",done
+csv_quotes,Parsing,Escaped double quotes,"정말 ""삭제""하시겠습니까?","Delete ""this"" for good?",本当に「削除」しますか？,"Wirklich ""löschen""?",done
+csv_embeddedNewline,Parsing,A real newline inside the cell,"첫 줄
+둘째 줄","First line
+Second line","1行目
+2行目","Erste Zeile
+Zweite Zeile",done
+csv_padded,Parsing,Surrounding whitespace is trimmed,  여백 있음  ,  padded  ,  余白あり  ,  mit Rand  ,done
+form_requiredBadge,Form,Literal square brackets — not a variable,[필수] 이름,[Required] Name,[必須] 名前,[Pflicht] Name,done
+markup_inline,Markup,Inline markup is left alone (xml syntax is off by default),<b>중요</b> 안내,<b>Important</b> notice,<b>重要</b>なお知らせ,<b>Wichtiger</b> Hinweis,done
+layout_longGerman,Layout,German expands — check truncation,설정,Settings,設定,Benutzereinstellungen und Datenschutz,done
+layout_emoji,Layout,Emoji and combining marks,완료 ✅ 🎉,Done ✅ 🎉,完了 ✅ 🎉,Fertig ✅ 🎉,done
+layout_cjkWrap,Layout,CJK line breaking,이 문장은 줄바꿈 동작을 보기 위한 조금 긴 문장입니다.,This sentence is a little long so you can see how it wraps.,この文はの折り返し動作を確認するための少し長い文です。,"Dieser Satz ist etwas länger, damit man den Umbruch sieht.",done
+standalone,Codegen,No separator — lands at the top level,단독 키,Standalone key,単独キー,Einzelner Schlüssel,done
+list_1st,Codegen,Member would start with a digit,첫 번째,First,1番目,Erste,done
+dup_hello_world,Codegen,Collides with the next row after camelCasing,안녕 세계,Hello world,こんにちは世界,Hallo Welt,done
+dup_hello-world,Codegen,Same member name — gets a suffix,안녕 세계 2,Hello world 2,こんにちは世界 2,Hallo Welt 2,done
+dotted.key.style,Codegen,Dots work like underscores,점 표기,Dotted style,ドット表記,Punktnotation,done

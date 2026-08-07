@@ -86,8 +86,8 @@ struct RendererTests {
 
     /// 원문으로 위치표를 만들고 대상 값을 렌더링한다.
     private func render(source: String, target: String) -> String? {
-        let map = renderer.positionMap(for: parser.parse(source).0)
-        return renderer.render(parser.parse(target).0, using: map)
+        let plan = renderer.plan(for: parser.parse(source).0)
+        return renderer.render(parser.parse(target).0, using: plan)
     }
 
     @Test("변수 1개면 위치 번호를 붙이지 않는다")
@@ -127,6 +127,17 @@ struct RendererTests {
     @Test("변수가 없으면 %를 이스케이프하지 않는다 — 포맷 처리되지 않기 때문")
     func doesNotEscapeWhenNoPlaceholders() {
         #expect(render(source: "50% 할인", target: "50% 할인") == "50% 할인")
+    }
+
+    @Test("같은 변수를 두 번 쓰면 위치 지정자로 재사용한다 — 인자가 둘로 늘면 안 된다")
+    func repeatedVariableReusesOnePosition() {
+        let source = "{name}님, 안녕하세요 {name}님"
+        #expect(render(source: source, target: source) == "%1$@님, 안녕하세요 %1$@님")
+        #expect(
+            render(source: source, target: "Hello {name}, welcome back {name}")
+                == "Hello %1$@, welcome back %1$@")
+        // 생성되는 접근자도 인자 하나여야 한다
+        #expect(SwiftCodegen.argumentCount(in: "%1$@님, 안녕하세요 %1$@님") == 1)
     }
 
     @Test("대응되지 않는 이름이 있으면 nil")

@@ -51,6 +51,9 @@ make install-app    # 앱  → ~/Applications/StringsmithPreview.app
 
 `PREFIX=~/.local`, `APPDIR=/Applications`로 위치를 바꿀 수 있습니다. `xattr`도 필요 없습니다.
 
+예제 시트가 두 개 들어 있습니다. `Examples/sample-sheet.csv`(간단한 둘러보기)와
+`Examples/edge-cases.csv`(파서·변수·코드 생성의 까다로운 경우 — CI가 결과를 검사합니다).
+
 ## 시트 형태
 
 | 키 | 화면 | 설명 | 한국어 | 영어 |
@@ -100,7 +103,8 @@ Swift 예약어는 백틱으로 감싸고, 이름이 겹치면 접미사를 붙�
   값을 조용히 깨뜨리는 반면 `%@`는 어떤 값이든 받습니다
 - 중괄호가 몇 겹이든 **안쪽 쌍이 변수**입니다. 리터럴 중괄호는 여는 쪽 바로 앞에 백슬래시를
   붙입니다 — `\{count}` → `{count}`
-- `\n`·`\t`는 실제 제어 문자가 됩니다. `.xcstrings`는 JSON이라 두 글자로 두면 화면에 `\n`이 보입니다
+- `\n`·`\t`는 실제 제어 문자가 됩니다. `.xcstrings`는 JSON이라 두 글자로 두면 화면에 `\n`이 보입니다.
+  단어 중간이어도 마찬가지라 `C:\notes`는 줄바꿈 + `otes`가 됩니다. 그 외 자리의 백슬래시는 평범한 문자입니다
 - `"50% off"`는 변수가 아닙니다 (`% o`는 printf 문법상 유효하지만 로컬라이제이션 문자열에
   그런 용법이 없습니다)
 
@@ -195,7 +199,7 @@ StringsmithPreview   확인 앱 — 코어를 링크해 시트를 직접 읽는�
 ```
 
 ```bash
-make test       # 98개 테스트
+make test       # 102개 테스트
 make release    # 배포용 유니버설 묶음 → .build/dist
 ```
 

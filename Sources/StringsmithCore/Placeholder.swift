@@ -349,15 +349,20 @@ public struct IOSFormatRenderer: Sendable {
         self.config = config
     }
 
-    /// identity → 위치 번호(1-based).
-    public typealias PositionMap = [String: Int]
+    /// 원문이 정한 번호 배정과 표기 방식.
+    public struct PositionPlan: Sendable, Equatable {
+        /// identity → 위치 번호(1-based).
+        public var positions: [String: Int]
+        /// `%1$@` 형태를 쓸지. 원문 기준으로 한 번 정해 모든 로케일에 같게 적용한다.
+        public var usesPositional: Bool
+    }
 
     /// **원문 값이 번호를 정한다.**
     ///
     /// 처음 나온 순서로 1, 2, 3… 을 부여한다. 시트에 이미 `%2$@`처럼 번호가 있으면 그 값을 존중한다.
     /// 번역은 이 표를 보고 자기 어순대로 렌더링되므로, 번역가는 순서를 신경 쓸 필요가 없다.
-    public func positionMap(for parsed: ParsedValue) -> PositionMap {
-        var map: PositionMap = [:]
+    public func plan(for parsed: ParsedValue) -> PositionPlan {
+        var map: [String: Int] = [:]
         var next = 1
         var used = Set(parsed.placeholders.compactMap(\.explicitPosition))
 
@@ -373,22 +378,26 @@ public struct IOSFormatRenderer: Sendable {
                 next += 1
             }
         }
-        return map
+        return PositionPlan(positions: map, usesPositional: wantsPositional(for: parsed))
     }
 
     /// 위치 지정자를 쓸지 결정한다.
-    func usesPositional(count: Int) -> Bool {
+    ///
+    /// `auto` 는 **변수가 두 번 이상 등장하면** 켠다. 서로 다른 변수가 둘인 경우뿐 아니라
+    /// **같은 변수를 두 번 쓴 경우**(`{name}님, 안녕하세요 {name}님`)도 포함해야 한다.
+    /// 후자에서 `%@` 를 쓰면 인자가 둘로 늘어나 같은 값을 두 번 넘겨야 하고,
+    /// 다른 값을 넘기면 조용히 어긋난다. `%1$@ … %1$@` 이면 인자 하나로 재사용된다.
+    func wantsPositional(for parsed: ParsedValue) -> Bool {
         switch config.positional {
         case "always": return true
         case "never": return false
-        default: return count >= 2  // auto
+        default: return parsed.placeholders.count >= 2
         }
     }
 
     /// - Returns: 렌더링된 문자열. 대응되지 않는 이름이 있으면 `nil`.
-    public func render(_ parsed: ParsedValue, using map: PositionMap) -> String? {
+    public func render(_ parsed: ParsedValue, using plan: PositionPlan) -> String? {
         let hasPlaceholders = !parsed.placeholders.isEmpty
-        let positional = usesPositional(count: map.count)
         var out = ""
 
         for segment in parsed.segments {
@@ -398,8 +407,8 @@ public struct IOSFormatRenderer: Sendable {
                 // 변수가 없으면 포맷 처리되지 않으므로 그대로 둔다.
                 out += hasPlaceholders ? text.replacingOccurrences(of: "%", with: "%%") : text
             case let .placeholder(placeholder):
-                guard let position = map[placeholder.identity] else { return nil }
-                out += positional ? "%\(position)$@" : "%@"
+                guard let position = plan.positions[placeholder.identity] else { return nil }
+                out += plan.usesPositional ? "%\(position)$@" : "%@"
             }
         }
         return out

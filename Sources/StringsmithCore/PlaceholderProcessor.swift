@@ -33,7 +33,7 @@ public struct PlaceholderProcessor: Sendable {
 
         public var formatted: String {
             let where_ = locale.map { "\(key) [\($0)]" } ?? key
-            return "\(where_) (행 \(row)): \(message)"
+            return where_ + tr(" (row \(row)): ", " (행 \(row)): ") + message
         }
     }
 
@@ -61,7 +61,7 @@ public struct PlaceholderProcessor: Sendable {
             // 원문은 위치표를 만들기 위해서만 파싱한다.
             // 표기 문제 보고는 아래 로케일 순회가 원문까지 함께 처리한다(중복 방지).
             let (sourceParsed, _) = parser.parse(sourceValue)
-            let map = renderer.positionMap(for: sourceParsed)
+            let plan = renderer.plan(for: sourceParsed)
 
             // V1c — 이름 없는 지정자가 2개 이상이면 어순 변화를 따라갈 수 없다.
             let unnamed = sourceParsed.placeholders.filter {
@@ -84,7 +84,7 @@ public struct PlaceholderProcessor: Sendable {
                     ))
             }
 
-            let sourceIdentities = Set(map.keys)
+            let sourceIdentities = Set(plan.positions.keys)
 
             for locale in entry.values.keys.sorted() {
                 guard let raw = entry.values[locale] else { continue }
@@ -124,7 +124,7 @@ public struct PlaceholderProcessor: Sendable {
                     continue
                 }
 
-                guard let rendered = renderer.render(parsed, using: map) else {
+                guard let rendered = renderer.render(parsed, using: plan) else {
                     issues.append(
                         Issue(
                             severity: .error, key: entry.key, locale: locale,

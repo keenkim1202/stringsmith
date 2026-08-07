@@ -55,3 +55,42 @@ jobs:
           # 두 언어 모두 출력이 나오는지 확인한다.
           STRINGSMITH_LANG=en "$GITHUB_WORKSPACE/.build/debug/stringsmith" generate | grep -q "unchanged"
           STRINGSMITH_LANG=ko "$GITHUB_WORKSPACE/.build/debug/stringsmith" generate | grep -q "변경 없음"
+
+      # 파서·변수 변환·코드 생성의 까다로운 경우를 모아둔 시트. 회귀를 여기서 잡는다.
+      - name: Edge cases
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          cp Examples/edge-cases.csv "$work/strings.csv"
+          cd "$work"
+          ss="$GITHUB_WORKSPACE/.build/debug/stringsmith"
+          STRINGSMITH_LANG=en "$ss" init
+          STRINGSMITH_LANG=en "$ss" generate
+          xcrun xcstringstool compile Resources/Localizable.xcstrings -o "$(mktemp -d)"
+          swiftc -parse-as-library -typecheck Resources/L10n.swift
+
+          check() {
+            if ! grep -qF "$1" "$2"; then
+              echo "::error::기대한 내용이 없습니다: $1 ($2)"
+              exit 1
+            fi
+          }
+          cat="Resources/Localizable.xcstrings"
+          gen="Resources/L10n.swift"
+          # 같은 변수를 두 번 쓰면 위치 지정자로 재사용해야 한다 (인자 하나)
+          check 'Hello %1$@, welcome back %1$@' "$cat"
+          check 'func welcomeBack(_ arg1: String) -> String' "$gen"
+          # 어순이 바뀐 번역도 원문의 번호를 따라간다
+          check '%2$@ notes shared by %1$@' "$cat"
+          # 변수가 하나면 위치 번호를 붙이지 않는다
+          check '%@ notes' "$cat"
+          # 리터럴 퍼센트는 변수가 있을 때만 이스케이프한다
+          check '50%% off for %@' "$cat"
+          check '100% complete' "$cat"
+          # 이스케이프한 중괄호는 리터럴, 겹친 중괄호는 안쪽이 변수
+          check 'Format example: {name}' "$cat"
+          check '{%@} items' "$cat"
+          # Swift 예약어·이름 충돌·숫자 시작
+          check 'static var `default`: String' "$gen"
+          check 'helloWorld2' "$gen"
+          check 'static var _1st: String' "$gen"
