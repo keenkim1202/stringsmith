@@ -22,7 +22,12 @@ struct Stringsmith: ParsableCommand {
               stringsmith generate      write the artifacts
               stringsmith preview       open the review app
 
-            CSV/TSV input only for now. XLSX and Google Sheets come later.
+            'ss' is a short alias for 'stringsmith' — 'ss generate' is the same
+            command. 'make install' creates it; for a downloaded binary, make it
+            yourself:
+              ln -sf /usr/local/bin/stringsmith /usr/local/bin/ss
+
+            Input is a CSV/TSV file or a Google Sheets URL. XLSX comes later.
             """,
             """
             시작하기:
@@ -30,7 +35,11 @@ struct Stringsmith: ParsableCommand {
               stringsmith generate      산출물을 만듭니다
               stringsmith preview       번역 확인 앱을 띄웁니다
 
-            지금은 CSV/TSV 입력만 지원합니다. XLSX·Google Sheets 는 이후 버전입니다.
+            'ss' 는 'stringsmith' 의 짧은 별칭입니다 — 'ss generate' 는 같은 명령입니다.
+            'make install' 이 함께 만들어 주며, 내려받은 바이너리라면 직접 만듭니다:
+              ln -sf /usr/local/bin/stringsmith /usr/local/bin/ss
+
+            입력은 CSV/TSV 파일 또는 Google Sheets URL 입니다. XLSX 는 이후 버전입니다.
             """),
         version: "0.1.0",
         subcommands: [Init.self, Generate.self, Preview.self]

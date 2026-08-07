@@ -16,6 +16,8 @@ ss generate    # .xcstrings + 타입세이프 Swift 접근자 생성
 ss preview     # 번역 확인 앱 실행
 ```
 
+`ss`는 `stringsmith` 명령의 짧은 별칭입니다. 둘은 완전히 같으며, 아래 설치 과정에서 함께 만들어집니다.
+
 ## 설치
 
 ### 내려받기
@@ -156,6 +158,10 @@ ss init [시트]        # 시트 헤더를 읽어 .stringsmith.json 초안 생�
 ss generate           # 산출물 생성
 ss preview            # 확인 앱에서 열기
 ```
+
+모든 명령은 `stringsmith`로 풀어 써도 똑같이 동작합니다. `ss`는 같은 바이너리를 가리키는 심볼릭 링크라
+`ss generate`와 `stringsmith generate`는 완전히 같습니다. `generate`는 `build`·`g`로도 부를 수 있습니다.
+전체 목록은 `stringsmith --help`에 있습니다.
 
 `init`은 시트(폴더에 CSV/TSV가 정확히 하나면), 헤더 행, 원문 로케일을 스스로 찾습니다.
 `.stringsmith.json`은 현재 디렉터리부터 위로 올라가며 찾습니다 (git과 같은 방식).

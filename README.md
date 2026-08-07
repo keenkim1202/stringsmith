@@ -16,6 +16,9 @@ ss generate    # write .xcstrings + typed Swift accessors
 ss preview     # open the translation review app
 ```
 
+`ss` is a short alias for the `stringsmith` command — the two are interchangeable, and the
+install below creates it.
+
 ## Install
 
 ### Download
@@ -160,6 +163,10 @@ ss init [sheet]      # draft .stringsmith.json from the sheet header
 ss generate          # write the artifacts
 ss preview           # open in the review app
 ```
+
+Every command also works spelled out as `stringsmith` — `ss` is just a symlink to the same binary,
+so `ss generate` and `stringsmith generate` are identical. `generate` also answers to `build` and
+`g`. `stringsmith --help` lists everything.
 
 `init` finds the sheet (if exactly one CSV/TSV is in the folder), the header row, and the source
 locale on its own. `.stringsmith.json` is found by walking up from the current directory, like git.
