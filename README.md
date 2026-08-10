@@ -283,6 +283,31 @@ Five items are listed by default; `-v` shows the rest. `generate` prints the sam
 Warnings do not fail by default: a missing translation is the normal state of a sheet someone
 is still filling in. `--strict` is for CI, where it may not be.
 
+### What stops a build
+
+| Problem | Default |
+|---|---|
+| Same key twice in the sheet | error |
+| Source value empty | error |
+| Variable in a translation that the source does not have | error |
+| **Two keys becoming one Swift name** | **error** |
+| Translation empty | warning |
+
+The last two are configurable:
+
+```json
+{ "validation": { "failOn": ["collision", "missing"] } }
+```
+
+A name collision fails by default because the damage is invisible afterwards. Two keys become
+`helloWorld` and `helloWorld2`, nothing in the code says which is which, and deleting one key
+from the sheet later renames the other — silently pointing the code at a different string.
+
+A missing translation does not fail, because a sheet somebody is still filling in always has
+gaps. Blocking there means no build until translation finishes, and iOS falls back to the source
+language anyway. Add `"missing"` in CI if that trade is wrong for you, or use `--strict` on
+`ss validate` for the same effect without touching the config.
+
 ### `ss auth setup` · `login` · `logout` · `status`
 
 `setup` creates the client file to fill in; `login` signs in to Google so private sheets can be read.

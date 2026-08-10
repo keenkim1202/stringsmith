@@ -95,6 +95,33 @@ jobs:
             echo "::error::--strict 인데 경고를 통과시켰습니다"; exit 1
           fi
 
+      # 이름이 충돌하면 산출물이 나오면 안 된다. 나온 뒤에는 알아채기 어려운 문제다.
+      - name: Name collisions block generate
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          cd "$work"
+          printf 'key,ko,en\na.hello_world,가,A\na.helloWorld,나,B\n' > strings.csv
+          ss="$GITHUB_WORKSPACE/.build/debug/stringsmith"
+          STRINGSMITH_LANG=en "$ss" init >/dev/null
+          if STRINGSMITH_LANG=en "$ss" generate; then
+            echo "::error::이름이 충돌하는데 generate 가 통과했습니다"
+            exit 1
+          fi
+          if [ -f Resources/Localizable.xcstrings ]; then
+            echo "::error::차단됐는데 산출물이 만들어졌습니다"
+            exit 1
+          fi
+          # 설정으로 풀 수 있어야 한다.
+          python3 - <<'PY'
+          import json
+          d = json.load(open('.stringsmith.json'))
+          d['validation'] = {'failOn': []}
+          json.dump(d, open('.stringsmith.json', 'w'))
+          PY
+          STRINGSMITH_LANG=en "$ss" generate
+          test -f Resources/Localizable.xcstrings
+
       # 인증 커맨드는 네트워크 없이도 올바른 안내를 내야 한다.
       - name: Auth commands
         run: |

@@ -11,16 +11,20 @@ public struct Configuration: Codable, Sendable, Equatable {
     public var output: OutputConfig
     /// 변수 표기 처리. 생략하면 기본값(apple + brace, auto 위치 지정자).
     public var placeholders: PlaceholderConfig
+    /// 어떤 경고를 실패로 볼지.
+    public var validation: ValidationConfig
 
     public init(
         source: SourceConfig,
         columns: ColumnMapping,
         output: OutputConfig,
-        placeholders: PlaceholderConfig = PlaceholderConfig()
+        placeholders: PlaceholderConfig = PlaceholderConfig(),
+        validation: ValidationConfig = ValidationConfig()
     ) {
         self.source = source
         self.columns = columns
         self.output = output
+        self.validation = validation
         self.placeholders = placeholders
     }
 
@@ -29,6 +33,8 @@ public struct Configuration: Codable, Sendable, Equatable {
         source = try c.decode(SourceConfig.self, forKey: .source)
         columns = try c.decode(ColumnMapping.self, forKey: .columns)
         output = try c.decode(OutputConfig.self, forKey: .output)
+        validation =
+            try c.decodeIfPresent(ValidationConfig.self, forKey: .validation) ?? ValidationConfig()
         placeholders =
             try c.decodeIfPresent(PlaceholderConfig.self, forKey: .placeholders)
             ?? PlaceholderConfig()
@@ -218,5 +224,34 @@ extension Configuration {
         @unknown default:
             return tr("Could not read the config.", "설정을 해석할 수 없습니다.")
         }
+    }
+}
+
+// MARK: - 무엇을 실패로 볼 것인가
+
+/// 경고 중 어떤 것에서 멈출지.
+///
+/// 기본값이 `["collision"]` 인 이유는 두 문제의 성질이 다르기 때문이다.
+///
+/// **이름 충돌은 막는다.** 서로 다른 키가 `helloWorld` 와 `helloWorld2` 가 되면 어느 쪽이
+/// 어느 키인지 코드만 보고는 알 수 없고, 나중에 시트에서 키 하나를 지우면 남은 키의 접미사가
+/// 조용히 바뀌어 코드가 다른 문자열을 가리키게 된다.
+///
+/// **번역 누락은 막지 않는다.** 아직 채우는 중인 시트에는 늘 빈 칸이 있다. 이걸로 빌드를
+/// 세우면 번역이 끝나기 전에는 앱을 못 만들고, iOS 는 번역이 없으면 원문으로 대체하므로
+/// 동작에도 문제가 없다. CI 에서 조이고 싶으면 `["collision", "missing"]` 로 둔다.
+public struct ValidationConfig: Codable, Sendable, Equatable {
+    /// 실패로 볼 경고 종류. `collision` · `missing` · `placeholder` · `other`.
+    public var failOn: [Warning.Kind]
+
+    public init(failOn: [Warning.Kind] = [.collision]) {
+        self.failOn = failOn
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        // 모르는 이름은 조용히 버린다 — 설정 오타 하나로 빌드를 세우지 않는다.
+        let raw = try c.decodeIfPresent([String].self, forKey: .failOn)
+        failOn = raw.map { $0.compactMap(Warning.Kind.init(rawValue:)) } ?? [.collision]
     }
 }

@@ -199,6 +199,8 @@ public struct Pipeline: Sendable {
         public var warnings: [Warning]
         /// 변수 표기가 바뀐 기록.
         public var conversions: [PlaceholderProcessor.Conversion]
+        /// 설정상 실패로 봐야 하는 경고. 비어 있지 않으면 `build` 가 멈춘다.
+        public var blocking: [Warning]
     }
 
     /// 시트를 읽어 검증만 한다.
@@ -216,6 +218,7 @@ public struct Pipeline: Sendable {
         // 변수 문제는 이미 키·행을 알고 있다. 그대로 옮긴다.
         var warnings = processed.warnings.map {
             Warning(
+                kind: .placeholder,
                 summary: $0.message,
                 items: [Warning.Item(key: $0.key, location: $0.row, note: $0.locale)])
         }
@@ -228,6 +231,7 @@ public struct Pipeline: Sendable {
             if !missing.isEmpty {
                 warnings.append(
                     Warning(
+                        kind: .missing,
                         summary: tr(
                             "\(locale): \(missing.count)/\(table.entries.count) translations missing",
                             "\(locale): 번역 \(missing.count)/\(table.entries.count)건 누락"),
@@ -248,6 +252,7 @@ public struct Pipeline: Sendable {
             for collision in codegen.generate(table: table).collisions {
                 warnings.append(
                     Warning(
+                        kind: .collision,
                         summary: tr(
                             "Name collision, suffixed: \(collision.identifier)",
                             "Swift 이름 충돌로 접미사를 붙였습니다: \(collision.identifier)"),
@@ -257,13 +262,23 @@ public struct Pipeline: Sendable {
             }
         }
 
+        let failOn = Set(configuration.validation.failOn)
         return ValidationResult(
-            table: table, warnings: warnings, conversions: processed.conversions)
+            table: table,
+            warnings: warnings,
+            conversions: processed.conversions,
+            blocking: warnings.filter { failOn.contains($0.kind) })
     }
 
     /// 산출물을 만든다. `dryRun`이면 파일을 쓰지 않고 결과만 계산한다.
     public func build(dryRun: Bool = false) throws -> BuildResult {
         let checked = try validate()
+        // 설정에서 실패로 정한 경고가 있으면 파일을 만들지 않는다. 이름 충돌처럼 코드가
+        // 조용히 엉뚱한 문자열을 가리키게 되는 문제는 산출물이 나온 뒤에 알아채기 어렵다.
+        if !checked.blocking.isEmpty {
+            throw StringsmithError.validationFailed(
+                issues: checked.blocking.map(\.formatted))
+        }
         let table = checked.table
         var written: [String] = []
         var unchanged: [String] = []
@@ -315,6 +330,7 @@ public struct Pipeline: Sendable {
             default:
                 warnings.append(
                     Warning(
+                        kind: .other,
                         summary: tr(
                             "Skipping unknown artifact \"\(artifact)\".",
                             "알 수 없는 산출물 \"\(artifact)\" 는 건너뜁니다.")))

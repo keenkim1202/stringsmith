@@ -84,12 +84,29 @@ extension Stringsmith {
                 return
             }
 
-            // 경고를 실패로 볼지는 상황에 달렸다. 사람이 시트를 고치는 중이라면 번역 누락은
-            // 당연한 상태이고, CI 라면 막아야 할 수도 있다. 그래서 기본은 통과다.
             let summary = tr(
                 "\(result.warnings.count) warning(s).", "경고 \(result.warnings.count)건.")
-            if strict {
-                print("\n⚠️ " + summary + " " + tr("(--strict)", "(--strict)"))
+
+            // 어떤 경고가 생성을 막는지는 설정이 정한다. 기본은 이름 충돌만이다 —
+            // 아직 채우는 중인 시트에서 번역 누락은 당연한 상태이기 때문이다.
+            let blocking = strict ? result.warnings : result.blocking
+            guard blocking.isEmpty else {
+                print(
+                    "\n❌ " + summary + " "
+                        + tr(
+                            "\(blocking.count) of them stop `generate`.",
+                            "그중 \(blocking.count)건이 generate 를 막습니다.")
+                        + (strict ? tr(" (--strict)", " (--strict)") : ""))
+                for warning in blocking {
+                    print("     " + tr("blocking:", "차단:") + " \(warning.summary)")
+                }
+                if !strict {
+                    print(
+                        Terminal.dim(
+                            tr(
+                                "     → Change validation.failOn in the config to allow them.",
+                                "     → 설정의 validation.failOn 을 고치면 통과시킬 수 있습니다.")))
+                }
                 throw ExitCode.failure
             }
             print("\n⚠️ " + summary + " " + tr("Nothing blocking.", "생성을 막지는 않습니다."))

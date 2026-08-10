@@ -67,14 +67,33 @@ public struct LocalizationTable: Sendable, Equatable {
 /// 때문이다. "번역 3건 누락" 만 보면 어디를 고쳐야 할지 알 수 없고, 시트를 고칠 사람에게는
 /// 그게 유일하게 필요한 정보다.
 public struct Warning: Sendable, Equatable {
+    /// 어떤 종류인지. 설정에서 무엇을 실패로 볼지 고르는 데 쓴다.
+    public enum Kind: String, Sendable, Codable, CaseIterable {
+        /// 서로 다른 키가 같은 Swift 이름이 됐다.
+        case collision
+        /// 번역이 비어 있다.
+        case missing
+        /// 변수 표기 문제.
+        case placeholder
+        /// 그 밖에.
+        case other
+    }
+
+    public var kind: Kind
     /// 한 줄 요약.
     public var summary: String
     /// 관련된 항목들. 비어 있을 수 있다.
     public var items: [Item]
 
-    public init(summary: String, items: [Item] = []) {
+    public init(kind: Kind, summary: String, items: [Item] = []) {
+        self.kind = kind
         self.summary = summary
         self.items = items
+    }
+
+    /// 오류로 낼 때 쓸 여러 줄 표기.
+    public var formatted: String {
+        ([summary] + items.map { "      " + $0.formatted }).joined(separator: "\n")
     }
 
     public struct Item: Sendable, Equatable {
@@ -188,9 +207,10 @@ extension StringsmithError: CustomStringConvertible {
                 """)
 
         case let .validationFailed(issues):
+            // 변수 문제뿐 아니라 실패로 정한 경고도 이 자리로 온다.
             let header = tr(
-                "Variable validation failed (\(issues.count)):",
-                "변수 검증에 실패했습니다 (\(issues.count)건):")
+                "Validation failed (\(issues.count)):",
+                "검증에 실패했습니다 (\(issues.count)건):")
             return ([header] + issues.map { "  ✗ \($0)" }).joined(separator: "\n")
 
         case let .invalidConfiguration(path, reason):
