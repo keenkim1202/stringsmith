@@ -187,10 +187,33 @@ public struct GoogleSheetsSource: SheetSource {
     }
 
     public func contents() throws -> SheetContents {
-        guard tabs.count > 1 else {
-            return SheetContents(rows: try rows(tab: tabs.first ?? gid))
+        // 캐시는 모든 경로가 지나는 여기서 다룬다. 오프라인에서 견디는 힘이 로그인
+        // 여부에 따라 달라질 이유가 없다.
+        do {
+            let contents = tabs.count > 1
+                ? try merged()
+                : SheetContents(rows: try rows(tab: tabs.first ?? gid))
+            saveCache(CSVParser.serialize(contents.rows))
+            return contents
+        } catch {
+            // 망이 안 될 때만 캐시로 간다. 시트가 비공개로 바뀐 것(403)까지 캐시로 덮으면
+            // 지워진 시트를 몇 달째 쓰고 있어도 아무도 모른다.
+            guard Self.isTransportFailure(error), let cached = loadCache() else { throw error }
+            FileHandle.standardError.write(
+                Data(
+                    tr(
+                        "⚠️ Could not reach the sheet — using the cached copy.\n",
+                        "⚠️ 시트를 가져오지 못해 캐시를 사용합니다.\n").utf8))
+            return SheetContents(rows: CSVParser().parse(cached))
         }
-        return try merged()
+    }
+
+    /// 망 자체가 안 되는 경우인가.
+    ///
+    /// `URLError` 는 연결·DNS·시간 초과다. 우리가 던진 `.io` 는 구글이 응답은 했는데 그
+    /// 내용이 문제인 경우(403·404·로그인 페이지)라서 캐시로 덮으면 안 된다.
+    static func isTransportFailure(_ error: Error) -> Bool {
+        error is URLError
     }
 
     /// 탭 하나를 읽는다. 로그인되어 있으면 API 로, 아니면 공개 링크로.
@@ -267,13 +290,10 @@ public struct GoogleSheetsSource: SheetSource {
         let oauth = GoogleOAuth(fetch: authorized)
         let token = try oauth.validAccessToken(store: tokens)
         let api = GoogleSheetsAPI(accessToken: token, fetch: authorized)
-        let rows = try api.rows(spreadsheetID: ids.id, gid: tab ?? gid ?? ids.gid)
-        // 탭 하나만 읽을 때만 캐시한다. 이어 붙이는 경우는 조각을 남겨 봐야 못 쓴다.
-        if tabs.count <= 1 { saveCache(CSVParser.serialize(rows)) }
-        return rows
+        return try api.rows(spreadsheetID: ids.id, gid: tab ?? gid ?? ids.gid)
     }
 
-    /// 내려받아 캐시에 저장한다. 실패하면 캐시로 대체한다.
+    /// 공개 CSV 내보내기로 받는다. 캐시는 `contents()` 가 다룬다.
     func download(tab: String?) throws -> String {
         guard let ids = GoogleSheetsURL.identifiers(from: url) else {
             throw StringsmithError.invalidConfiguration(
@@ -301,23 +321,7 @@ public struct GoogleSheetsSource: SheetSource {
                 path: url, reason: tr("Could not build the export URL.", "내보내기 주소를 만들지 못했습니다."))
         }
 
-        do {
-            let response = try fetch(export)
-            let text = try validate(response, export: export)
-            if tabs.count <= 1 { saveCache(text) }
-            return text
-        } catch {
-            // 네트워크가 끊겼을 때 캐시로 계속 갈 수 있어야 한다. 비행기·사내망에서 빌드가 멈추면 곤란하다.
-            if let cached = loadCache() {
-                FileHandle.standardError.write(
-                    Data(
-                        (tr(
-                            "⚠️ Could not reach the sheet — using the cached copy.\n",
-                            "⚠️ 시트를 가져오지 못해 캐시를 사용합니다.\n")).utf8))
-                return cached
-            }
-            throw error
-        }
+        return try validate(try fetch(export), export: export)
     }
 
     /// 응답이 정말 CSV 인지 본다.
