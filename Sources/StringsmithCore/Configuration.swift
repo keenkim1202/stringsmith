@@ -185,18 +185,30 @@ extension Configuration {
         case let .keyNotFound(key, context):
             let parent = pathString(context.codingPath)
             let full = parent.isEmpty ? key.stringValue : "\(parent).\(key.stringValue)"
-            return "필수 항목 \"\(full)\"이(가) 없습니다."
+            return tr(
+                "Required field \"\(full)\" is missing.",
+                "필수 항목 \"\(full)\"이(가) 없습니다.")
         case let .typeMismatch(_, context):
-            return "\"\(pathString(context.codingPath))\"의 값 타입이 맞지 않습니다."
+            let path = pathString(context.codingPath)
+            return tr(
+                "\"\(path)\" has the wrong type.",
+                "\"\(path)\"의 값 타입이 맞지 않습니다.")
         case let .valueNotFound(_, context):
-            return "\"\(pathString(context.codingPath))\"의 값이 비어 있습니다."
+            let path = pathString(context.codingPath)
+            return tr(
+                "\"\(path)\" is empty.",
+                "\"\(path)\"의 값이 비어 있습니다.")
         case let .dataCorrupted(context):
             let path = pathString(context.codingPath)
             return path.isEmpty
-                ? "JSON 형식이 올바르지 않습니다. \(context.debugDescription)"
-                : "\"\(path)\" 부근의 형식이 올바르지 않습니다."
+                ? tr(
+                    "The JSON is malformed. \(context.debugDescription)",
+                    "JSON 형식이 올바르지 않습니다. \(context.debugDescription)")
+                : tr(
+                    "The JSON is malformed near \"\(path)\".",
+                    "\"\(path)\" 부근의 형식이 올바르지 않습니다.")
         @unknown default:
-            return "설정을 해석할 수 없습니다."
+            return tr("Could not read the config.", "설정을 해석할 수 없습니다.")
         }
     }
 }

@@ -277,3 +277,20 @@ struct OAuthErrorTests {
 final class Captured: @unchecked Sendable {
     var body: String?
 }
+
+// MARK: - 실제로 겪은 응답
+
+@Suite("OAuth — 실제 응답 회귀")
+struct OAuthRegressionTests {
+
+    /// 2026-08-10 실제 로그인에서 받은 응답. 구글은 비밀값 누락을 invalid_client 가 아니라
+    /// invalid_request 로 답하고, 진짜 이유는 error_description 에만 적는다.
+    @Test("비밀값 누락은 설정 방법을 안내한다")
+    func explainsAMissingClientSecret() {
+        let body = #"{"error":"invalid_request","error_description":"client_secret is missing."}"#
+        let text = GoogleOAuth.explain(
+            SheetResponse(status: 400, mimeType: "application/json", body: Data(body.utf8)))
+
+        #expect(text.contains("STRINGSMITH_GOOGLE_CLIENT_SECRET"))
+    }
+}

@@ -228,3 +228,27 @@ struct CSVSerializeTests {
         #expect(CSVParser().parse(CSVParser.serialize(rows)) == rows)
     }
 }
+
+// MARK: - 안내 문구 회귀
+
+@Suite("공개 링크 실패 안내")
+struct PublicExportGuidanceTests {
+
+    /// 서비스 계정 경로는 2026-08-10 에 폐기됐다. 안내가 없는 방법을 가리키면 안 된다.
+    @Test("비공개 시트는 로그인을 안내한다")
+    func pointsAtSignIn() throws {
+        let source = GoogleSheetsSource(
+            url: "https://docs.google.com/spreadsheets/d/ID/edit",
+            fetch: { _ in
+                SheetResponse(status: 404, mimeType: "text/html", body: Data("<!doctype html>".utf8))
+            })
+
+        do {
+            _ = try source.rows()
+            Issue.record("비공개 시트인데 통과했습니다")
+        } catch let error as StringsmithError {
+            #expect(error.description.contains("ss auth login"))
+            #expect(error.description.lowercased().contains("service account") == false)
+        }
+    }
+}

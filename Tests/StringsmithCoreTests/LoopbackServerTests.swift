@@ -102,4 +102,13 @@ struct LoopbackServerTests {
         #expect(LoopbackServer.page(success: false).contains("<!doctype html"))
         #expect(LoopbackServer.page(success: true) != LoopbackServer.page(success: false))
     }
+
+    /// 코드를 받은 시점에 나가는 페이지라 아직 성공을 알 수 없다. 2026-08-10 에 이 페이지가
+    /// "로그인되었습니다" 라고 띄운 뒤 토큰 교환이 실패해 터미널과 말이 어긋났다.
+    @Test("코드를 받은 페이지는 로그인 성공을 단언하지 않는다")
+    func doesNotClaimSuccessBeforeTheExchange() {
+        let page = LoopbackServer.page(success: true)
+        #expect(page.contains("Signed in") == false)
+        #expect(page.contains("로그인되었습니다") == false)
+    }
 }

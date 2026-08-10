@@ -292,15 +292,21 @@ final class LoopbackServer {
         }
     }
 
-    /// 로그인을 마친 사람이 브라우저에서 보게 될 화면.
+    /// 브라우저에서 보게 될 화면.
+    ///
+    /// **"로그인되었습니다" 라고 쓰지 않는다.** 이 페이지는 인가 코드를 받은 시점에 나가고,
+    /// 토큰 교환은 그 뒤에 일어난다. 성공을 단언했다가 교환이 실패하면 브라우저와 터미널이
+    /// 서로 다른 말을 하게 된다 — 실제로 한 번 그렇게 어긋났다. 판정은 터미널이 한다.
     static func page(success: Bool) -> String {
         let title =
             success
-            ? tr("Signed in", "로그인되었습니다")
+            ? tr("Returning to the terminal", "터미널로 돌아가세요")
             : tr("Sign-in failed", "로그인하지 못했습니다")
         let detail =
             success
-            ? tr("You can close this tab and return to the terminal.", "이 탭을 닫고 터미널로 돌아가세요.")
+            ? tr(
+                "You can close this tab. The terminal will show whether it worked.",
+                "이 탭을 닫아도 됩니다. 성공 여부는 터미널에 표시됩니다.")
             : tr("Return to the terminal for details.", "자세한 내용은 터미널을 보세요.")
         return """
             <!doctype html><html><head><meta charset="utf-8"><title>stringsmith</title></head>
@@ -538,6 +544,24 @@ public struct GoogleOAuth: Sendable {
     static func explain(_ response: SheetResponse) -> String {
         let parsed = try? JSONDecoder().decode(TokenError.self, from: response.body)
         let code = parsed?.error ?? "HTTP \(response.status)"
+
+        // 구글은 비밀값이 빠졌을 때 invalid_client 가 아니라 invalid_request 로 답하고,
+        // 진짜 이유는 error_description 에만 적어 준다. 실제로 이 경로로 한 번 막혔다.
+        if parsed?.errorDescription?.contains("client_secret") == true {
+            return tr(
+                """
+                This OAuth client requires a secret (\(code)).
+                  → Google Cloud Console → Credentials → your Desktop client,
+                    then set it and try again:
+                      export STRINGSMITH_GOOGLE_CLIENT_SECRET=…
+                """,
+                """
+                비밀값을 요구하는 OAuth 클라이언트입니다 (\(code)).
+                  → Google Cloud Console → 사용자 인증 정보 → 데스크톱 클라이언트에서 확인한 뒤
+                    설정하고 다시 시도하세요:
+                      export STRINGSMITH_GOOGLE_CLIENT_SECRET=…
+                """)
+        }
 
         switch parsed?.error {
         case "invalid_grant":

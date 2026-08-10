@@ -119,7 +119,9 @@ extension Stringsmith {
             let rows: [[String]]
             if let url {
                 print("ℹ️ " + tr("Fetching the sheet…", "시트를 가져오는 중…"))
-                rows = try GoogleSheetsSource(url: url).rows()
+                // generate 와 같은 규칙으로 읽는다. 로그인해 두고도 init 이 공개 링크로만
+                // 시도하면, 비공개 시트에서는 설정조차 만들 수 없다.
+                rows = try GoogleSheetsSource(url: url, tokens: FileTokenStore()).rows()
                 sourceConfig = SourceConfig(
                     type: "google-sheets", url: url, headerRow: 1, defaultLocale: "")
                 guard !rows.isEmpty else { throw StringsmithError.emptySheet(path: url) }

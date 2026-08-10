@@ -202,13 +202,15 @@ public struct GoogleSheetsSource: SheetSource {
             reason: tr(
                 """
                 The sheet is not readable without signing in (HTTP \(response.status)).
-                  → Share it as "Anyone with the link can view",
-                    or use a service account (see the README).
+                  → Sign in, and any sheet your account can open becomes readable:
+                      ss auth login
+                  → Or share it as "Anyone with the link can view".
                 """,
                 """
                 로그인 없이 읽을 수 없는 시트입니다 (HTTP \(response.status)).
-                  → "링크가 있는 모든 사용자"로 공유하거나,
-                    서비스 계정을 설정하세요 (README 참고).
+                  → 로그인하면 내 계정으로 열 수 있는 시트는 전부 읽힙니다:
+                      ss auth login
+                  → 또는 "링크가 있는 모든 사용자"로 공유하세요.
                 """))
     }
 

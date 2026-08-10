@@ -87,13 +87,15 @@ extension Stringsmith {
             func run() throws {
                 Stringsmith.configureBuffering()
 
-                guard GoogleClient.isConfigured else {
-                    print(GoogleClient.notConfiguredMessage)
-                    return
-                }
+                // 로그인 상태를 먼저 본다. 클라이언트 설정 여부로 가로막으면, 이미 로그인해 둔
+                // 사람에게 "설정되지 않았습니다" 만 보여 주게 된다 — 실제로 그렇게 어긋났다.
                 guard let tokens = try FileTokenStore().load() else {
                     print(tr("Not signed in.", "로그인되어 있지 않습니다."))
-                    print(Terminal.dim(tr("  → Run: ss auth login", "  → 실행: ss auth login")))
+                    if GoogleClient.isConfigured {
+                        print(Terminal.dim(tr("  → Run: ss auth login", "  → 실행: ss auth login")))
+                    } else {
+                        print(GoogleClient.notConfiguredMessage)
+                    }
                     return
                 }
 
@@ -113,6 +115,16 @@ extension Stringsmith {
                             "로그인되어 있습니다. 액세스 토큰은 \(expiry) 까지 유효합니다."))
                 }
                 print(Terminal.dim("  \(FileTokenStore.defaultPath)"))
+
+                // 갱신에도 클라이언트가 필요하다. 지금은 읽히더라도 한 시간 뒤에 막힌다.
+                if !GoogleClient.isConfigured {
+                    print()
+                    print(
+                        tr(
+                            "⚠️ No OAuth client is set, so the token cannot be renewed when it expires.",
+                            "⚠️ OAuth 클라이언트가 설정되어 있지 않아 토큰이 만료되면 갱신할 수 없습니다."))
+                    print(GoogleClient.notConfiguredMessage)
+                }
             }
         }
     }
