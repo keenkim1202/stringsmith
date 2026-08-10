@@ -101,10 +101,18 @@ unverified-app warning and no shared user cap.
 3. **OAuth consent screen** → User type **External** → add the scope
    `.../auth/spreadsheets.readonly` → add your address under **Test users**
 4. **Credentials → Create credentials → OAuth client ID** → Application type **Desktop app**
-5. Download the JSON and save it as `~/.config/stringsmith/client.json`
+5. Save it where stringsmith looks:
 
-The downloaded file works unchanged — stringsmith reads the `installed` wrapper Google puts
-around it. To write it by hand, see [`Examples/google-client.example.json`](Examples/google-client.example.json):
+```bash
+ss auth setup       # creates ~/.config/stringsmith/client.json with the values blank
+```
+
+   Then fill in `client_id` and `client_secret`. The JSON Console downloads works as-is —
+   save it over that file and skip the typing.
+
+stringsmith reads the `installed` wrapper Google puts around the download, so no unwrapping
+is needed. The shape it wants is just two fields — see
+[`Examples/google-client.example.json`](Examples/google-client.example.json):
 
 ```json
 { "client_id": "….apps.googleusercontent.com", "client_secret": "…" }
@@ -225,9 +233,9 @@ locale on its own. `.stringsmith.json` is found by walking up from the current d
 | `-o` `--output` | init | Output directory (default `Resources`) |
 | `--url` | init | Google Sheets share URL |
 
-### `ss auth login` · `logout` · `status`
+### `ss auth setup` · `login` · `logout` · `status`
 
-Sign in to Google so private sheets can be read.
+`setup` creates the client file to fill in; `login` signs in to Google so private sheets can be read.
 | `-r` `--header-row` | init | Header row number, 1-based |
 | `-s` `--source-locale` | init | Source locale |
 | `--artifacts` | init | `xcstrings` · `swift` |

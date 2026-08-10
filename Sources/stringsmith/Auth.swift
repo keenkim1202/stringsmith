@@ -11,8 +11,83 @@ extension Stringsmith {
                 stringLiteral: tr(
                     "Sign in to Google to read private sheets.",
                     "비공개 시트를 읽기 위해 Google 에 로그인합니다.")),
-            subcommands: [Login.self, Logout.self, Status.self],
+            subcommands: [Setup.self, Login.self, Logout.self, Status.self],
             defaultSubcommand: Status.self)
+
+        // MARK: setup
+
+        struct Setup: ParsableCommand {
+            static let configuration = CommandConfiguration(
+                abstract: .init(
+                    stringLiteral: tr(
+                        "Create an empty OAuth client file to fill in.",
+                        "채워 넣을 빈 OAuth 클라이언트 파일을 만듭니다.")))
+
+            @Flag(
+                name: [.short, .long],
+                help: .init(
+                    stringLiteral: tr(
+                        "Overwrite an existing file.", "이미 있는 파일을 덮어씁니다.")))
+            var force = false
+
+            func run() throws {
+                Stringsmith.configureBuffering()
+
+                guard let path = try GoogleClient.writeTemplate(force: force) else {
+                    // 이미 채워 둔 값을 말없이 날리면 안 된다.
+                    print(
+                        tr(
+                            "A client file already exists: \(GoogleClient.configPath)",
+                            "클라이언트 파일이 이미 있습니다: \(GoogleClient.configPath)"))
+                    print(
+                        Terminal.dim(
+                            tr(
+                                "  → Edit it, or pass --force to start over.",
+                                "  → 직접 수정하거나, --force 로 새로 만드세요.")))
+                    return
+                }
+
+                print(
+                    tr(
+                        "✅ Created \(path) (mode 600).",
+                        "✅ \(path) 를 만들었습니다 (권한 600)."))
+                print()
+                print(tr("Fill in the two blank values:", "비어 있는 두 값을 채우세요:"))
+                print(
+                    Terminal.dim(
+                        """
+                          "client_id": ""
+                          "client_secret": ""
+                        """))
+                print()
+                print(
+                    tr(
+                        """
+                        Get them from Google Cloud Console:
+                          1. console.cloud.google.com → create a project
+                          2. APIs & Services → Library → enable "Google Sheets API"
+                          3. OAuth consent screen → External → add the scope
+                             .../auth/spreadsheets.readonly → add yourself under Test users
+                          4. Credentials → Create credentials → OAuth client ID
+                             → Application type: Desktop app
+
+                        The JSON Console downloads works as-is — save it over that file.
+                        Then run: ss auth login
+                        """,
+                        """
+                        값은 Google Cloud Console 에서 받습니다:
+                          1. console.cloud.google.com → 프로젝트 만들기
+                          2. API 및 서비스 → 라이브러리 → "Google Sheets API" 사용 설정
+                          3. OAuth 동의 화면 → 외부 → 범위에
+                             .../auth/spreadsheets.readonly 추가 → 테스트 사용자에 본인 추가
+                          4. 사용자 인증 정보 → 사용자 인증 정보 만들기 → OAuth 클라이언트 ID
+                             → 애플리케이션 유형: 데스크톱 앱
+
+                        Console 이 내려 주는 JSON 을 그 파일에 그대로 덮어써도 됩니다.
+                        그 뒤 실행: ss auth login
+                        """))
+            }
+        }
 
         // MARK: login
 

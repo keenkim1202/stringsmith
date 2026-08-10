@@ -79,6 +79,40 @@ public enum GoogleClient {
         return try? JSONDecoder().decode(Stored.self, from: data)
     }
 
+    // MARK: 빈 파일 만들기
+
+    /// 값만 비워 둔 설정 파일을 만든다.
+    ///
+    /// 저장소에 템플릿을 두는 방법도 있지만, 릴리스 바이너리나 brew 로 설치한 사람에게는
+    /// 체크아웃이 없다. 도구가 직접 만들어 주면 설치 경로와 무관하게 닿는다.
+    ///
+    /// - Returns: 만든 파일 경로. 이미 있으면 `nil`.
+    @discardableResult
+    public static func writeTemplate(path: String? = nil, force: Bool = false) throws -> String? {
+        let path = path ?? configPath
+        if FileManager.default.fileExists(atPath: path), !force { return nil }
+
+        let template = """
+            {
+              "_where": "Fill in the two values below. Google Cloud Console → Credentials → \
+            OAuth client ID → Desktop app. You can also just save the JSON that Console \
+            downloads, wrapper and all, over this file.",
+              "client_id": "",
+              "client_secret": ""
+            }
+
+            """
+
+        let directory = (path as NSString).deletingLastPathComponent
+        try FileManager.default.createDirectory(
+            atPath: directory, withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700])
+        try Data(template.utf8).write(to: URL(fileURLWithPath: path))
+        // 비밀값이 들어갈 파일이니 처음부터 좁혀 둔다.
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path)
+        return path
+    }
+
     // MARK: 안내
 
     /// 클라이언트가 없을 때 보여 줄 설정 절차.
@@ -99,12 +133,12 @@ public enum GoogleClient {
                  .../auth/spreadsheets.readonly → add yourself under Test users
               4. Credentials → Create credentials → OAuth client ID
                  → Application type: Desktop app
-              5. Download the JSON and save it as:
+              5. Save it where stringsmith looks:
+                   ss auth setup      # creates the file with the values blank
                    \(configPath)
 
-            The downloaded file works as-is. Or write it yourself:
-
-              { "client_id": "….apps.googleusercontent.com", "client_secret": "…" }
+            Then fill in "client_id" and "client_secret". The JSON that Console downloads
+            also works as-is, wrapper and all — just save it over that file.
 
             Environment variables override the file:
               STRINGSMITH_GOOGLE_CLIENT_ID, STRINGSMITH_GOOGLE_CLIENT_SECRET
@@ -121,12 +155,12 @@ public enum GoogleClient {
                  .../auth/spreadsheets.readonly 추가 → 테스트 사용자에 본인 계정 추가
               4. 사용자 인증 정보 → 사용자 인증 정보 만들기 → OAuth 클라이언트 ID
                  → 애플리케이션 유형: 데스크톱 앱
-              5. JSON 을 다운로드해 이 경로에 저장:
+              5. stringsmith 가 찾는 자리에 저장:
+                   ss auth setup      # 값이 비어 있는 파일을 만들어 줍니다
                    \(configPath)
 
-            다운로드한 파일을 그대로 두면 됩니다. 직접 적어도 됩니다:
-
-              { "client_id": "….apps.googleusercontent.com", "client_secret": "…" }
+            그 뒤 "client_id" 와 "client_secret" 을 채우면 됩니다. Console 이 내려 주는
+            JSON 을 껍데기째 그대로 덮어써도 읽습니다.
 
             환경 변수가 파일보다 우선합니다:
               STRINGSMITH_GOOGLE_CLIENT_ID, STRINGSMITH_GOOGLE_CLIENT_SECRET

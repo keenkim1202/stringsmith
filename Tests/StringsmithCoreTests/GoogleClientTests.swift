@@ -104,3 +104,58 @@ struct ExampleClientFileTests {
         #expect(stored?.clientSecret == "your-client-secret-here")
     }
 }
+
+// MARK: - 빈 파일 만들기
+
+@Suite("클라이언트 파일 생성")
+struct WriteTemplateTests {
+
+    func inTemporaryDirectory(_ body: (String) throws -> Void) throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try body(directory.appendingPathComponent("client.json").path)
+    }
+
+    @Test("값이 빈 파일을 만들고 권한을 600 으로 둔다")
+    func writesABlankFileTightly() throws {
+        try inTemporaryDirectory { path in
+            #expect(try GoogleClient.writeTemplate(path: path) == path)
+
+            let stored = GoogleClient.load(path: path)
+            #expect(stored?.clientId == "")
+            #expect(stored?.clientSecret == "")
+
+            // 비밀값이 들어갈 자리다. 만들 때부터 좁혀 둔다.
+            let mode = try FileManager.default.attributesOfItem(atPath: path)[.posixPermissions]
+            #expect((mode as? NSNumber)?.int16Value == 0o600)
+        }
+    }
+
+    @Test("어디에 무엇을 채우는지 파일 안에 적는다")
+    func explainsItselfInTheFile() throws {
+        try inTemporaryDirectory { path in
+            try GoogleClient.writeTemplate(path: path)
+            let contents = try String(contentsOfFile: path, encoding: .utf8)
+            #expect(contents.contains("Desktop app"))
+            #expect(contents.contains("client_secret"))
+        }
+    }
+
+    /// 채워 둔 값을 말없이 날리면 안 된다.
+    @Test("이미 있으면 덮어쓰지 않는다")
+    func refusesToClobber() throws {
+        try inTemporaryDirectory { path in
+            try GoogleClient.writeTemplate(path: path)
+            try Data(#"{"client_id":"mine","client_secret":"kept"}"#.utf8)
+                .write(to: URL(fileURLWithPath: path))
+
+            #expect(try GoogleClient.writeTemplate(path: path) == nil)
+            #expect(GoogleClient.load(path: path)?.clientSecret == "kept")
+
+            // 명시적으로 요구했을 때만 새로 만든다.
+            #expect(try GoogleClient.writeTemplate(path: path, force: true) == path)
+            #expect(GoogleClient.load(path: path)?.clientSecret == "")
+        }
+    }
+}

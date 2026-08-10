@@ -100,11 +100,18 @@ ss auth status      # 또는: ss auth logout
    `.../auth/spreadsheets.readonly` 추가 → **테스트 사용자**에 본인 주소 추가
 4. **사용자 인증 정보 → 사용자 인증 정보 만들기 → OAuth 클라이언트 ID** →
    애플리케이션 유형 **데스크톱 앱**
-5. JSON 을 다운로드해 `~/.config/stringsmith/client.json` 으로 저장
+5. stringsmith 가 찾는 자리에 저장:
 
-다운로드한 파일을 그대로 두면 됩니다 — Google 이 씌우는 `installed` 껍데기까지 읽습니다.
-직접 적으려면 [`Examples/google-client.example.json`](Examples/google-client.example.json) 을
-참고하세요:
+```bash
+ss auth setup       # 값이 비어 있는 ~/.config/stringsmith/client.json 을 만듭니다
+```
+
+   그 뒤 `client_id` 와 `client_secret` 을 채웁니다. Console 이 내려 주는 JSON 을 그
+   파일에 그대로 덮어쓰면 타이핑할 것도 없습니다.
+
+Google 이 씌우는 `installed` 껍데기까지 읽으므로 벗길 필요가 없습니다. 필요한 건 두
+필드뿐입니다 — [`Examples/google-client.example.json`](Examples/google-client.example.json)
+참고:
 
 ```json
 { "client_id": "….apps.googleusercontent.com", "client_secret": "…" }
@@ -221,9 +228,9 @@ ss preview            # 확인 앱에서 열기
 | `-o` `--output` | init | 산출물 디렉터리 (기본 `Resources`) |
 | `--url` | init | Google Sheets 공유 URL |
 
-### `ss auth login` · `logout` · `status`
+### `ss auth setup` · `login` · `logout` · `status`
 
-비공개 시트를 읽기 위해 Google 에 로그인합니다.
+`setup` 은 채워 넣을 클라이언트 파일을 만들고, `login` 은 Google 에 로그인합니다.
 | `-r` `--header-row` | init | 헤더 행 번호 (1부터) |
 | `-s` `--source-locale` | init | 원문 로케일 |
 | `--artifacts` | init | `xcstrings` · `swift` |

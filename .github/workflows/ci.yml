@@ -84,6 +84,14 @@ jobs:
           STRINGSMITH_LANG=en "$ss" auth logout | grep -q "nothing to remove"
           STRINGSMITH_LANG=en "$ss" auth --help | grep -q "login"
 
+          # setup 은 빈 파일을 만들고, 이미 있으면 덮어쓰지 않아야 한다.
+          home="$(mktemp -d)"
+          HOME="$home" STRINGSMITH_LANG=en "$ss" auth setup | grep -q "Created"
+          test -f "$home/.config/stringsmith/client.json"
+          # 만들어 둔 파일은 미설정으로 읽혀야 한다 (값이 비어 있으므로).
+          HOME="$home" STRINGSMITH_LANG=en "$ss" auth status | grep -q "console.cloud.google.com"
+          HOME="$home" STRINGSMITH_LANG=en "$ss" auth setup | grep -q "already exists"
+
       # 파서·변수 변환·코드 생성의 까다로운 경우를 모아둔 시트. 회귀를 여기서 잡는다.
       - name: Edge cases
         run: |
