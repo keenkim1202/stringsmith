@@ -150,6 +150,29 @@ export STRINGSMITH_GOOGLE_CLIENT_SECRET=…
 > The secret it issues is required — Google rejects the token exchange without it, even with
 > PKCE. Keep the file to yourself; `chmod 600` it.
 
+## Excel files
+
+`.xlsx` works the same as a CSV — point at it, or let `init` find it:
+
+```bash
+ss init strings.xlsx
+ss generate
+```
+
+No package is added to read it. An `.xlsx` is a ZIP of XML, and both are unpacked directly;
+decompression uses the system `Compression` framework, which ships with the OS rather than
+being a dependency.
+
+A workbook with several sheets reads the first one. Pick another with `source.tabs`:
+
+```json
+{ "source": { "type": "xlsx", "path": "strings.xlsx", "tabs": ["Translations"] } }
+```
+
+> **Number formats are not interpreted.** Excel stores dates as serial numbers, so a
+> date-formatted cell arrives as `45870` rather than `2026-08-10`. Keys and translations are
+> text, so this rarely comes up — but format the cell as text if you do need a date to survive.
+
 ## Choosing a format
 
 Pick one — the two are alternatives, not a pair:
@@ -450,7 +473,7 @@ Paths are relative to the config file, so it works from anywhere in the repo.
 
 | Key | Values |
 |---|---|
-| `source.type` | `csv` · `google-sheets` |
+| `source.type` | `csv` · `xlsx` · `google-sheets` (detected from the extension too) |
 | `output.artifacts` | `xcstrings` · `swift` · `strings` · `stringsdict` |
 | `output.pluralVariable` | Variable that carries the count (default `count`) |
 | `source.url` / `source.gid` | Google Sheets share URL, and a tab within it |

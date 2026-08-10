@@ -155,6 +155,32 @@ jobs:
           # 편집이 표 중간에 끼어들어 뒷부분이 머리글 없는 조각으로 떨어진 적이 있다.
           python3 Scripts/check-tables.py README.md README.ko.md
 
+      # 엑셀은 ZIP 이라 CSV 경로로 새어 들어가면 "UTF-8 이 아니다" 로만 끝난다.
+      - name: XLSX source
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          cp Examples/sample-sheet.xlsx "$work/strings.xlsx"
+          cd "$work"
+          ss="$GITHUB_WORKSPACE/.build/debug/stringsmith"
+          STRINGSMITH_LANG=en "$ss" init | tee init.txt
+          # 여러 시트면 어느 것을 읽는지 알려 줘야 한다.
+          grep -q "sheets" init.txt
+          grep -q '"type" : "xlsx"' .stringsmith.json || grep -q '"type": "xlsx"' .stringsmith.json
+          STRINGSMITH_LANG=en "$ss" generate >/dev/null
+          xcrun xcstringstool compile Resources/Localizable.xcstrings -o "$(mktemp -d)"
+
+          python3 - <<'PY'
+          import json, sys
+          d = json.load(open('Resources/Localizable.xcstrings'))['strings']
+          # XML 이스케이프가 되돌아왔는가.
+          if d['home.title']['localizations']['ko']['stringUnit']['value'] != '홈 & <중요>':
+              sys.exit('XML 이스케이프가 풀리지 않았습니다')
+          # 빠진 칸이 있어도 열이 밀리지 않았는가 — 밀렸다면 ko 가 en 자리에 온다.
+          if 'en' in d['cart.empty'].get('localizations', {}):
+              sys.exit('en 이 비어야 하는데 값이 들어갔습니다 (열이 밀렸습니다)')
+          PY
+
       # 형식은 택일이다. 바꾸면 이전 형식이 남으면 안 된다.
       - name: Output format switch
         run: |

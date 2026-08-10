@@ -148,6 +148,28 @@ export STRINGSMITH_GOOGLE_CLIENT_SECRET=…
 > 그것뿐입니다. 함께 발급되는 비밀값도 **반드시 필요합니다** — PKCE 를 써도 Google 이 비밀값
 > 없이는 토큰 교환을 거부합니다. 파일은 본인만 보도록 `chmod 600` 해 두세요.
 
+## 엑셀 파일
+
+`.xlsx` 는 CSV 와 똑같이 씁니다. 경로를 주거나, `init` 이 찾게 두면 됩니다:
+
+```bash
+ss init strings.xlsx
+ss generate
+```
+
+읽자고 패키지를 들이지는 않았습니다. `.xlsx` 는 XML 을 담은 ZIP 이라 둘 다 직접 풀고,
+압축 해제만 시스템 `Compression` 프레임워크를 씁니다 — 그건 의존성이 아니라 OS 의 일부입니다.
+
+시트가 여럿이면 첫 번째를 읽습니다. 다른 것을 쓰려면 `source.tabs` 로 고릅니다:
+
+```json
+{ "source": { "type": "xlsx", "path": "strings.xlsx", "tabs": ["번역"] } }
+```
+
+> **숫자 서식은 해석하지 않습니다.** 엑셀은 날짜를 일련번호로 저장하므로, 날짜 서식이 걸린
+> 칸은 `2026-08-10` 이 아니라 `45870` 으로 읽힙니다. 키와 번역은 텍스트라 걸릴 일이 드물지만,
+> 날짜를 그대로 남기려면 그 칸을 텍스트 서식으로 두세요.
+
 ## 형식 고르기
 
 둘 중 하나를 씁니다 — 같이 쓰는 게 아니라 택일입니다:
@@ -436,7 +458,7 @@ ss drift              # 또는: ss drift path/to/Sources
 
 | 키 | 값 |
 |---|---|
-| `source.type` | `csv` · `google-sheets` |
+| `source.type` | `csv` · `xlsx` · `google-sheets` (확장자로도 알아봅니다) |
 | `output.artifacts` | `xcstrings` · `swift` · `strings` · `stringsdict` |
 | `output.pluralVariable` | 수를 세는 변수 이름 (기본 `count`) |
 | `source.url` / `source.gid` | Google Sheets 공유 URL, 그 안의 탭 |

@@ -135,9 +135,27 @@ extension Stringsmith {
                 guard !rows.isEmpty else { throw StringsmithError.emptySheet(path: url) }
             } else {
                 let sheet = try resolveSheet()
-                rows = try CSVParser.forFile(at: sheet).parseFile(at: sheet)
+                // 엑셀은 텍스트가 아니라 ZIP 이다. CSV 파서에 그대로 넣으면
+                // "UTF-8 이 아니다" 로 끝나서 무엇이 문제인지 알 수 없다.
+                if sheet.lowercased().hasSuffix(".xlsx") {
+                    let workbook = try XLSXReader(path: sheet)
+                    rows = try workbook.rows()
+                    let names = workbook.sheetNames()
+                    if names.count > 1 {
+                        print(
+                            "ℹ️ " + tr(
+                                "\(names.count) sheets — reading \"\(names[0])\". "
+                                    + "Set source.tabs to pick another.",
+                                "시트 \(names.count)개 중 \"\(names[0])\" 를 읽습니다. "
+                                    + "다른 것을 쓰려면 source.tabs 를 지정하세요."))
+                    }
+                    sourceConfig = SourceConfig(
+                        type: "xlsx", path: sheet, headerRow: 1, defaultLocale: "")
+                } else {
+                    rows = try CSVParser.forFile(at: sheet).parseFile(at: sheet)
+                    sourceConfig = SourceConfig(path: sheet, headerRow: 1, defaultLocale: "")
+                }
                 guard !rows.isEmpty else { throw StringsmithError.emptySheet(path: sheet) }
-                sourceConfig = SourceConfig(path: sheet, headerRow: 1, defaultLocale: "")
             }
 
             let headerRow = try resolveHeaderRow(in: rows)
@@ -226,7 +244,9 @@ extension Stringsmith {
             if let sheet { return sheet }
             let directory = FileManager.default.currentDirectoryPath
             let names = ((try? FileManager.default.contentsOfDirectory(atPath: directory)) ?? [])
-                .filter { ["csv", "tsv"].contains(($0 as NSString).pathExtension.lowercased()) }
+                .filter {
+                    ["csv", "tsv", "xlsx"].contains(($0 as NSString).pathExtension.lowercased())
+                }
                 .sorted()
 
             switch names.count {

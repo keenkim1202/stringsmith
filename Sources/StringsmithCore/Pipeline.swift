@@ -68,8 +68,20 @@ public struct Pipeline: Sendable {
                 // 로그인되어 있으면 Sheets API 로, 아니면 공개 링크로 읽는다.
                 tokens: FileTokenStore()
             )
+        case "xlsx":
+            return XLSXSource(
+                path: resolve(configuration.source.path),
+                // 여러 시트가 든 통합 문서에서 어느 것을 읽을지. `tabs` 를 재사용한다.
+                sheet: configuration.source.tabs?.first ?? configuration.source.gid)
+
         default:
-            return LocalFileSource(path: resolve(configuration.source.path))
+            // 확장자로도 알아본다. type 을 손으로 고치게 하지 않는다.
+            let path = resolve(configuration.source.path)
+            if path.lowercased().hasSuffix(".xlsx") {
+                return XLSXSource(
+                    path: path, sheet: configuration.source.tabs?.first ?? configuration.source.gid)
+            }
+            return LocalFileSource(path: path)
         }
     }
 

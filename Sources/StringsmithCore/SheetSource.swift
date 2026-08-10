@@ -60,6 +60,23 @@ public struct LocalFileSource: SheetSource {
     }
 }
 
+// MARK: - 엑셀 파일
+
+public struct XLSXSource: SheetSource {
+    public let path: String
+    /// 읽을 시트 이름. 없으면 첫 번째.
+    public let sheet: String?
+
+    public init(path: String, sheet: String? = nil) {
+        self.path = path
+        self.sheet = sheet
+    }
+
+    public func contents() throws -> SheetContents {
+        SheetContents(rows: try XLSXReader(path: path).rows(named: sheet))
+    }
+}
+
 // MARK: - Google Sheets URL
 
 /// 공유 URL에서 시트 ID와 탭(gid)을 뽑아 CSV 내보내기 주소를 만든다.
