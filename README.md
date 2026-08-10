@@ -330,13 +330,29 @@ are skipped.
 
 ### What stops a build
 
-| Problem | Default |
-|---|---|
-| Same key twice in the sheet | error |
-| Source value empty | error |
-| Variable in a translation that the source does not have | error |
-| **Two keys becoming one Swift name** | **error** |
-| Translation empty | warning |
+| Problem | Kind | Default |
+|---|---|---|
+| Same key twice in the sheet | — | error |
+| Source value empty | — | error |
+| Variable in a translation that the source does not have | — | error |
+| **Two keys becoming one Swift name** | `collision` | **error** |
+| Translation empty | `missing` | warning |
+| Key with spaces or stray dots, or off `keyPattern` | `key` | warning |
+| Invisible characters, or leading/trailing spaces | `whitespace` | warning |
+| Translation far longer than the rest of its language | `length` | warning |
+
+Two of these are worth a word on how they avoid noise.
+
+**Length** does not use a fixed multiple. Korean to English roughly doubles the character count
+on its own, so a flat 1.8× would flag the entire English column. It compares each translation
+against the **median ratio for its own language** instead, so only what stands out within a
+language is reported. `validation.lengthFactor` sets the multiple (`0` turns it off), and sheets
+with fewer than eight comparable rows are skipped — a median needs something to be a median of.
+
+**Invisible characters** deliberately skip the zero-width joiner and the direction marks. The
+joiner is what holds 👨‍👩‍👧‍👦 together, and the direction marks are genuinely needed when Arabic and
+Latin text mix. What is flagged is the paste damage: no-break spaces, zero-width spaces, BOMs.
+
 
 The last two are configurable:
 
@@ -383,6 +399,8 @@ Paths are relative to the config file, so it works from anywhere in the repo.
 | `source.type` | `csv` · `google-sheets` |
 | `source.url` / `source.gid` | Google Sheets share URL, and a tab within it |
 | `source.tabs` | Tabs to join, by gid or name |
+| `validation.keyPattern` | Regex keys must match (unset = only structural checks) |
+| `validation.lengthFactor` | Median multiple before a translation looks too long (default `1.8`, `0` off) |
 | `validation.failOn` | `collision` · `missing` · `placeholder` · `other` (default `["collision"]`) |
 | `output.swift.namespace` | `keyPrefix` · `screen` · `none` |
 | `output.swift.bundle` | `main` · `module` (SPM resources) |

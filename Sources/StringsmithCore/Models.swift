@@ -75,6 +75,12 @@ public struct Warning: Sendable, Equatable {
         case missing
         /// 변수 표기 문제.
         case placeholder
+        /// 키 이름이 이상하다.
+        case key
+        /// 눈에 보이지 않는 문자나 앞뒤 공백.
+        case whitespace
+        /// 원문 대비 유난히 긴 번역.
+        case length
         /// 그 밖에.
         case other
     }

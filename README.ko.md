@@ -320,13 +320,28 @@ ss drift              # 또는: ss drift path/to/Sources
 
 ### 무엇이 생성을 막는가
 
-| 문제 | 기본 |
-|---|---|
-| 시트에 같은 키가 두 번 | 에러 |
-| 원문 값이 비어 있음 | 에러 |
-| 원문에 없는 변수가 번역에 있음 | 에러 |
-| **두 키가 같은 Swift 이름이 됨** | **에러** |
-| 번역 값이 비어 있음 | 경고 |
+| 문제 | 종류 | 기본 |
+|---|---|---|
+| 시트에 같은 키가 두 번 | — | 에러 |
+| 원문 값이 비어 있음 | — | 에러 |
+| 원문에 없는 변수가 번역에 있음 | — | 에러 |
+| **두 키가 같은 Swift 이름이 됨** | `collision` | **에러** |
+| 번역 값이 비어 있음 | `missing` | 경고 |
+| 키에 공백·잘못된 점, 또는 `keyPattern` 위반 | `key` | 경고 |
+| 비가시 문자, 앞뒤 공백 | `whitespace` | 경고 |
+| 그 언어 안에서 유난히 긴 번역 | `length` | 경고 |
+
+이 중 둘은 잡음을 어떻게 피하는지 적어 둘 만합니다.
+
+**길이**는 고정 배수를 쓰지 않습니다. 한국어에서 영어로 가면 글자 수가 원래 두 배쯤 되므로
+1.8배를 그대로 걸면 영어 열 전체가 걸립니다. 대신 **그 언어의 중앙값 대비** 몇 배인지를 보고,
+한 언어 안에서 튀는 것만 짚습니다. 배수는 `validation.lengthFactor` 로 정하고 `0` 이면 끕니다.
+비교 가능한 행이 여덟 개가 안 되면 아예 보지 않습니다 — 중앙값이라 할 게 없으니까요.
+
+**비가시 문자**는 폭 0 접합자와 방향 표시 문자를 일부러 뺐습니다. 접합자는 👨‍👩‍👧‍👦 를 이어 주는
+것이고, 방향 표시 문자는 아랍어와 라틴 문자를 섞을 때 실제로 필요합니다. 잡는 건 붙여넣다
+딸려 온 것들입니다 — 줄바꿈 없는 공백, 폭 0 공백, BOM.
+
 
 아래 둘은 설정으로 바꿉니다:
 
@@ -372,6 +387,8 @@ ss drift              # 또는: ss drift path/to/Sources
 | `source.type` | `csv` · `google-sheets` |
 | `source.url` / `source.gid` | Google Sheets 공유 URL, 그 안의 탭 |
 | `source.tabs` | 이어 붙일 탭. gid 또는 이름 |
+| `validation.keyPattern` | 키가 따라야 할 정규식 (없으면 형식만 검사) |
+| `validation.lengthFactor` | 중앙값의 몇 배부터 길다고 볼지 (기본 `1.8`, `0` 이면 끔) |
 | `validation.failOn` | `collision` · `missing` · `placeholder` · `other` (기본 `["collision"]`) |
 | `output.swift.namespace` | `keyPrefix` · `screen` · `none` |
 | `output.swift.bundle` | `main` · `module` (SPM 리소스) |

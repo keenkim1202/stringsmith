@@ -262,6 +262,12 @@ public struct Pipeline: Sendable {
             }
         }
 
+        // 시트 자체에 대한 규칙들. 변수와 무관해서 따로 둔다.
+        let rules = configuration.validation
+        warnings += SheetRules.keyProblems(table.entries, pattern: rules.keyPattern)
+        warnings += SheetRules.invisibleCharacters(table.entries)
+        warnings += SheetRules.lengthOutliers(table, factor: rules.lengthFactor)
+
         let failOn = Set(configuration.validation.failOn)
         return ValidationResult(
             table: table,

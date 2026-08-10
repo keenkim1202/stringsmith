@@ -241,11 +241,23 @@ extension Configuration {
 /// 세우면 번역이 끝나기 전에는 앱을 못 만들고, iOS 는 번역이 없으면 원문으로 대체하므로
 /// 동작에도 문제가 없다. CI 에서 조이고 싶으면 `["collision", "missing"]` 로 둔다.
 public struct ValidationConfig: Codable, Sendable, Equatable {
-    /// 실패로 볼 경고 종류. `collision` · `missing` · `placeholder` · `other`.
+    /// 실패로 볼 경고 종류.
     public var failOn: [Warning.Kind]
+    /// V3 — 키가 따라야 할 정규식. 없으면 형식만 본다.
+    ///
+    /// 명명 스타일은 팀마다 다르므로 기본으로 강제하지 않는다.
+    public var keyPattern: String?
+    /// V7 — 그 로케일의 중앙값 대비 몇 배부터 "유난히 길다" 로 볼지. `0` 이면 끈다.
+    public var lengthFactor: Double
 
-    public init(failOn: [Warning.Kind] = [.collision]) {
+    public init(
+        failOn: [Warning.Kind] = [.collision],
+        keyPattern: String? = nil,
+        lengthFactor: Double = 1.8
+    ) {
         self.failOn = failOn
+        self.keyPattern = keyPattern
+        self.lengthFactor = lengthFactor
     }
 
     public init(from decoder: any Decoder) throws {
@@ -253,5 +265,7 @@ public struct ValidationConfig: Codable, Sendable, Equatable {
         // 모르는 이름은 조용히 버린다 — 설정 오타 하나로 빌드를 세우지 않는다.
         let raw = try c.decodeIfPresent([String].self, forKey: .failOn)
         failOn = raw.map { $0.compactMap(Warning.Kind.init(rawValue:)) } ?? [.collision]
+        keyPattern = try c.decodeIfPresent(String.self, forKey: .keyPattern)
+        lengthFactor = try c.decodeIfPresent(Double.self, forKey: .lengthFactor) ?? 1.8
     }
 }
