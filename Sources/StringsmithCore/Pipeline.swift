@@ -91,10 +91,24 @@ public struct Pipeline: Sendable {
             languageIndices.append((locale, try index.index(of: column, role: "languages.\(locale)")))
         }
 
+        /// 키·화면·설명처럼 **식별과 주석에 쓰이는** 칸. 앞뒤 공백은 실수이므로 다듬는다.
         func cell(_ row: [String], _ i: Int?) -> String? {
             guard let i, i < row.count else { return nil }
             let value = row[i].trimmingCharacters(in: .whitespacesAndNewlines)
             return value.isEmpty ? nil : value
+        }
+
+        /// 번역 값이 들어가는 칸. **다듬지 않는다.**
+        ///
+        /// 앞뒤 공백이 의도된 경우가 실제로 있다 — `"{name} "` 처럼 뒤에 공백을 두고 다른
+        /// 요소와 이어 붙이는 문구가 그렇다. 지워 버리면 시트에서 표현할 방법이 없어진다.
+        ///
+        /// 다만 **있는지 없는지는 다듬어서 판단한다.** 공백만 있는 칸은 번역이 아니라 빈 칸이고,
+        /// 그걸 값으로 받으면 미번역 경고가 뜨지 않아 빠진 번역을 놓치게 된다.
+        func translation(_ row: [String], _ i: Int?) -> String? {
+            guard let i, i < row.count else { return nil }
+            let value = row[i]
+            return value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : value
         }
 
         var entries: [LocalizationEntry] = []
@@ -114,7 +128,7 @@ public struct Pipeline: Sendable {
 
             var values: [String: String] = [:]
             for (locale, column) in languageIndices {
-                if let value = cell(row, column) { values[locale] = value }
+                if let value = translation(row, column) { values[locale] = value }
             }
 
             entries.append(

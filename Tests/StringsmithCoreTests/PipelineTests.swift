@@ -125,6 +125,55 @@ struct PipelineTests {
         #expect(table.entries[1].comment == nil)
     }
 
+    /// 시트에서 앞뒤 공백을 지우면 다시 넣을 방법이 없다. `"{name} "` 처럼 뒤에 공백을 두고
+    /// 다른 요소와 이어 붙이는 문구가 실제로 있다.
+    @Test("번역 값의 앞뒤 공백은 의도로 보고 지우지 않는다")
+    func keepsWhitespaceInTranslations() throws {
+        let (pipeline, _) = try makePipeline(
+            csv: """
+                키,화면,설명,한국어,영어
+                joined.prefix,본문,이어 붙이는 문구,"{name} ","{name} "
+                indented.body,본문,들여쓴 줄,"  들여쓴 값","  indented  "
+                """
+        )
+        let table = try pipeline.loadTable()
+
+        #expect(table.entries[0].values["ko"] == "{name} ")
+        #expect(table.entries[0].values["en"] == "{name} ")
+        #expect(table.entries[1].values["ko"] == "  들여쓴 값")
+        #expect(table.entries[1].values["en"] == "  indented  ")
+    }
+
+    /// 값은 그대로 두더라도, 있는지 없는지는 다듬어서 판단해야 한다. 공백만 있는 칸을 번역으로
+    /// 받으면 미번역 경고가 뜨지 않아 빠진 번역을 놓친다.
+    @Test("공백만 있는 칸은 번역이 아니라 빈 칸이다")
+    func treatsWhitespaceOnlyAsMissing() throws {
+        let (pipeline, _) = try makePipeline(
+            csv: """
+                키,화면,설명,한국어,영어
+                blank.translation,본문,공백만 있는 번역,있음,"   "
+                """
+        )
+        let table = try pipeline.loadTable()
+        #expect(table.entries[0].values["ko"] == "있음")
+        #expect(table.entries[0].values["en"] == nil)
+    }
+
+    /// 키에 앞뒤 공백이 붙으면 Swift 식별자가 깨지고, 같은 키가 둘로 갈린다.
+    @Test("키·화면·설명은 계속 다듬는다")
+    func stillTrimsIdentifiers() throws {
+        let (pipeline, _) = try makePipeline(
+            csv: """
+                키,화면,설명,한국어,영어
+                "  settings.title  ","  설정  ","  화면 제목  ",설정,Settings
+                """
+        )
+        let table = try pipeline.loadTable()
+        #expect(table.entries[0].key == "settings.title")
+        #expect(table.entries[0].screen == "설정")
+        #expect(table.entries[0].comment == "화면 제목")
+    }
+
     @Test("빈 행을 건너뛰고 원본 행 번호를 유지한다")
     func skipsBlankRowsKeepingRowNumbers() throws {
         let (pipeline, _) = try makePipeline(
