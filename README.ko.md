@@ -13,10 +13,14 @@ stringsmith는 그 다리를 제품으로 만듭니다.
 ```bash
 ss init        # 시트를 읽어 설정 초안 생성
 ss generate    # .xcstrings + 타입세이프 Swift 접근자 생성
+ss validate    # 파일을 만들지 않고 시트만 검사
+ss drift       # 시트와 코드가 어긋난 키 찾기
 ss preview     # 번역 확인 앱 실행
 ```
 
 `ss`는 `stringsmith` 명령의 짧은 별칭입니다. 둘은 완전히 같으며, 아래 설치 과정에서 함께 만들어집니다.
+
+첫 릴리스 이후의 변경은 [CHANGELOG.ko.md](CHANGELOG.ko.md) 에 있습니다.
 
 ## 설치
 
@@ -53,8 +57,10 @@ make install-app    # 앱  → ~/Applications/StringsmithPreview.app
 
 `PREFIX=~/.local`, `APPDIR=/Applications`로 위치를 바꿀 수 있습니다. `xattr`도 필요 없습니다.
 
-예제 시트가 두 개 들어 있습니다. `Examples/sample-sheet.csv`(간단한 둘러보기)와
-`Examples/edge-cases.csv`(파서·변수·코드 생성의 까다로운 경우 — CI가 결과를 검사합니다).
+시험해 볼 시트가 들어 있습니다 — `Examples/sample-sheet.csv`(간단한 둘러보기),
+`Examples/sample-sheet.xlsx`(같은 내용의 엑셀), `Examples/edge-cases.csv`(파서·변수·코드
+생성의 까다로운 경우, CI가 결과를 검사합니다). [`Examples/DemoApp`](Examples/DemoApp) 은
+시트에서 만들어져 실제로 도는 앱입니다.
 
 ## Google Sheets 에서 읽기
 

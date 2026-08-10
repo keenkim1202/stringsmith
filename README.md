@@ -13,11 +13,15 @@ stringsmith is that bridge, as a product.
 ```bash
 ss init        # infer config from your sheet
 ss generate    # write .xcstrings + typed Swift accessors
+ss validate    # check the sheet, write nothing
+ss drift       # find keys the sheet and the code disagree on
 ss preview     # open the translation review app
 ```
 
 `ss` is a short alias for the `stringsmith` command — the two are interchangeable, and the
 install below creates it.
+
+Changes since the first release are in [CHANGELOG.md](CHANGELOG.md).
 
 ## Install
 
@@ -54,8 +58,10 @@ make install-app    # App → ~/Applications/StringsmithPreview.app
 
 `PREFIX=~/.local` and `APPDIR=/Applications` override the destinations. No `xattr` needed.
 
-Two example sheets ship with the repo: `Examples/sample-sheet.csv` (a small tour) and
-`Examples/edge-cases.csv` (parser, variable, and codegen corner cases — CI checks its output).
+The repo ships sheets to try it on — `Examples/sample-sheet.csv` (a small tour),
+`Examples/sample-sheet.xlsx` (the same thing as Excel), and `Examples/edge-cases.csv` (parser,
+variable and codegen corner cases, whose output CI checks). [`Examples/DemoApp`](Examples/DemoApp)
+is a working app built from a sheet.
 
 ## Reading from Google Sheets
 

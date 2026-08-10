@@ -153,7 +153,34 @@ jobs:
           (cd "$work" && STRINGSMITH_LANG=en "$ss" validate)
 
           # 편집이 표 중간에 끼어들어 뒷부분이 머리글 없는 조각으로 떨어진 적이 있다.
-          python3 Scripts/check-tables.py README.md README.ko.md
+          python3 Scripts/check-tables.py README.md README.ko.md CHANGELOG.md CHANGELOG.ko.md
+
+          # 문서가 가리키는 파일이 실재하는가.
+          python3 - <<'PY'
+          import os, re, sys
+          missing = []
+          for doc in ['README.md', 'README.ko.md', 'CHANGELOG.md', 'CHANGELOG.ko.md',
+                      'Examples/DemoApp/README.md']:
+              base = os.path.dirname(doc)
+              for _, target in re.findall(r'\[([^\]]+)\]\(([^)]+)\)', open(doc).read()):
+                  if target.startswith(('http', '#')):
+                      continue
+                  if not os.path.exists(os.path.normpath(os.path.join(base, target))):
+                      missing.append(f'{doc} → {target}')
+          if missing:
+              sys.exit('죽은 링크: ' + ', '.join(missing))
+          PY
+
+          # 릴리스에 적히는 버전과 바이너리가 말하는 버전이 같아야 한다.
+          make_version="$(grep -E '^VERSION \?=' Makefile | sed 's/.*= *//')"
+          cli_version="$("$ss" --version)"
+          if [ "$make_version" != "$cli_version" ]; then
+            echo "::error::Makefile 은 $make_version, 바이너리는 $cli_version"
+            exit 1
+          fi
+          # 변경 이력에 그 버전이 있어야 한다.
+          grep -q "^## $cli_version" CHANGELOG.md
+          grep -q "^## $cli_version" CHANGELOG.ko.md
 
       # 예제가 실제로 돌아야 예제다. 커밋된 산출물이 시트와 어긋나는 것도 여기서 잡는다.
       - name: Example app

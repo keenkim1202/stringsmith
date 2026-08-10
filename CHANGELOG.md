@@ -1,0 +1,48 @@
+# Changelog
+
+English · [한국어](CHANGELOG.ko.md)
+
+## 0.2.0
+
+Everything below is new since the first release. If you are on 0.1.0, the one behaviour change
+to know about is that **a Swift name collision now stops `generate`** instead of only warning —
+see `validation.failOn` if you need the old behaviour.
+
+### Sources
+
+- **Google Sheets by URL.** `ss init --url …` reads the sheet directly; no CSV export step.
+  The last good response is cached, so being offline does not stop a build.
+- **Sign-in for private sheets.** `ss auth login` opens a browser once (PKCE, loopback). Any
+  sheet your account can open becomes readable without loosening its sharing settings. The
+  OAuth client is yours, not bundled — `ss auth setup` writes the file to fill in.
+- **Excel.** `.xlsx` reads directly, no dependency added.
+- **Several tabs** join into one table with `source.tabs`.
+
+### Output
+
+- **`--format`** picks between String Catalogs and `.strings`/`.stringsdict`.
+- **Plurals**, written as key suffixes (`cart.items.one`). Both formats carry them properly, and
+  the generated accessor is one function taking an `Int`.
+- **`output.swift.path`** puts generated code somewhere other than the resources directory.
+
+### Checking
+
+- **`ss validate`** checks the sheet without writing anything. `--strict` for CI.
+- **`ss drift`** finds keys the sheet and the code disagree on — unused ones, and ones called by
+  string that the sheet lacks.
+- **`validation.failOn`** decides which warnings stop a build. Name collisions do by default.
+- New rules: key names, invisible characters, plural categories against CLDR, and translations
+  far longer than the rest of their language.
+
+### Fixes
+
+- Leading and trailing spaces in translations are kept — they can be deliberate.
+- Rows whose source cell is legitimately empty (a plural form the source language lacks) are no
+  longer reported as missing, and their translations are converted rather than shipped raw.
+- Errors name the tab a row came from when tabs are joined.
+- `--header-row` had no short option: its derived `-h` collided with `--help`. It is `-r`.
+
+## 0.1.0
+
+First release. CSV and TSV in, `.xcstrings` and typed Swift accessors out, with the variable
+notation converted to iOS format specifiers and a macOS app for reviewing the result.
