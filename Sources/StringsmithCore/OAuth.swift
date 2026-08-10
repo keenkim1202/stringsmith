@@ -45,8 +45,7 @@ public struct FileTokenStore: TokenStore {
     }
 
     public static var defaultPath: String {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        return home + "/.config/stringsmith/credentials.json"
+        homeDirectory() + "/.config/stringsmith/credentials.json"
     }
 
     public func load() throws -> OAuthTokens? {

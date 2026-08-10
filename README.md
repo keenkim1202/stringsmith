@@ -89,16 +89,39 @@ to `~/.config/stringsmith/credentials.json` with mode `600`. `ss auth logout` de
 revoke access on Google's side, visit
 [myaccount.google.com/permissions](https://myaccount.google.com/permissions).
 
-### Using your own OAuth client
+### Setting up an OAuth client (one-time, ~5 minutes)
 
-Builds ship with a shared client. To use your organization's instead — which avoids the
-unverified-app warning and any user cap — create a **Desktop app** OAuth client in Google Cloud
-Console with the Google Sheets API enabled, then:
+**stringsmith does not ship with a Google client, and this is deliberate.** Bundling one would
+mean publishing its secret in this repository. Registering your own also means no
+unverified-app warning and no shared user cap.
+
+1. [console.cloud.google.com](https://console.cloud.google.com) → create a project
+2. **APIs & Services → Library** → enable **Google Sheets API**
+   *(do not enable Drive — its scopes are "restricted" and need a security review)*
+3. **OAuth consent screen** → User type **External** → add the scope
+   `.../auth/spreadsheets.readonly` → add your address under **Test users**
+4. **Credentials → Create credentials → OAuth client ID** → Application type **Desktop app**
+5. Download the JSON and save it as `~/.config/stringsmith/client.json`
+
+The downloaded file works unchanged — stringsmith reads the `installed` wrapper Google puts
+around it. To write it by hand, see [`Examples/google-client.example.json`](Examples/google-client.example.json):
+
+```json
+{ "client_id": "….apps.googleusercontent.com", "client_secret": "…" }
+```
+
+Environment variables override the file, which is useful in CI:
 
 ```bash
 export STRINGSMITH_GOOGLE_CLIENT_ID=…apps.googleusercontent.com
-export STRINGSMITH_GOOGLE_CLIENT_SECRET=…   # only if your client requires one
+export STRINGSMITH_GOOGLE_CLIENT_SECRET=…
 ```
+
+`ss auth login` prints these same steps if no client is set up yet.
+
+> **"Desktop app" matters.** Only that type accepts the `127.0.0.1` redirect this flow needs.
+> The secret it issues is required — Google rejects the token exchange without it, even with
+> PKCE. Keep the file to yourself; `chmod 600` it.
 
 ## Sheet format
 

@@ -74,8 +74,12 @@ jobs:
         run: |
           set -euo pipefail
           ss="$GITHUB_WORKSPACE/.build/debug/stringsmith"
-          # 클라이언트가 없는 빌드에서는 발급 방법을 알려 줘야 한다.
-          STRINGSMITH_LANG=en "$ss" auth status | grep -q "STRINGSMITH_GOOGLE_CLIENT_ID"
+          # 클라이언트가 없으면 발급 절차 전체를 그대로 보여 줘야 한다.
+          # 여기서 막힌 사람은 다른 문서를 찾아갈 수 없다.
+          STRINGSMITH_LANG=en "$ss" auth status | tee status.txt
+          grep -q "console.cloud.google.com" status.txt
+          grep -q "client.json" status.txt
+          grep -q "STRINGSMITH_GOOGLE_CLIENT_ID" status.txt
           # 로그인한 적 없을 때 지울 게 없다고 말하고 0으로 끝나야 한다.
           STRINGSMITH_LANG=en "$ss" auth logout | grep -q "nothing to remove"
           STRINGSMITH_LANG=en "$ss" auth --help | grep -q "login"

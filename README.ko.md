@@ -87,16 +87,41 @@ ss auth status      # 또는: ss auth logout
 파일을 지우고, Google 쪽 접근 권한까지 끊으려면
 [myaccount.google.com/permissions](https://myaccount.google.com/permissions) 에서 해제합니다.
 
-### 자체 OAuth 클라이언트 사용
+### OAuth 클라이언트 설정 (최초 1회, 5분)
 
-배포본에는 공용 클라이언트가 들어 있습니다. 조직 클라이언트를 쓰려면 — 미검증 앱 경고와
-사용자 한도를 피할 수 있습니다 — Google Cloud Console 에서 Google Sheets API 를 켜고
-**데스크톱 앱** OAuth 클라이언트를 만든 뒤:
+**stringsmith 는 Google 클라이언트를 내장하지 않습니다. 의도한 것입니다.** 내장하려면
+비밀값을 이 저장소에 공개해야 합니다. 직접 등록하면 미검증 앱 경고도, 공용 사용자 한도도
+없습니다.
+
+1. [console.cloud.google.com](https://console.cloud.google.com) → 프로젝트 만들기
+2. **API 및 서비스 → 라이브러리** → **Google Sheets API** 사용 설정
+   *(Drive 는 켜지 마세요 — "제한" 등급이라 보안 심사가 붙습니다)*
+3. **OAuth 동의 화면** → 사용자 유형 **외부** → 범위에
+   `.../auth/spreadsheets.readonly` 추가 → **테스트 사용자**에 본인 주소 추가
+4. **사용자 인증 정보 → 사용자 인증 정보 만들기 → OAuth 클라이언트 ID** →
+   애플리케이션 유형 **데스크톱 앱**
+5. JSON 을 다운로드해 `~/.config/stringsmith/client.json` 으로 저장
+
+다운로드한 파일을 그대로 두면 됩니다 — Google 이 씌우는 `installed` 껍데기까지 읽습니다.
+직접 적으려면 [`Examples/google-client.example.json`](Examples/google-client.example.json) 을
+참고하세요:
+
+```json
+{ "client_id": "….apps.googleusercontent.com", "client_secret": "…" }
+```
+
+환경 변수가 파일보다 우선합니다. CI 에서 쓸모 있습니다:
 
 ```bash
 export STRINGSMITH_GOOGLE_CLIENT_ID=…apps.googleusercontent.com
-export STRINGSMITH_GOOGLE_CLIENT_SECRET=…   # 클라이언트가 요구할 때만
+export STRINGSMITH_GOOGLE_CLIENT_SECRET=…
 ```
+
+클라이언트가 없으면 `ss auth login` 이 같은 절차를 그대로 출력합니다.
+
+> **"데스크톱 앱" 이어야 합니다.** 이 방식이 필요로 하는 `127.0.0.1` 리다이렉트를 받는 유형은
+> 그것뿐입니다. 함께 발급되는 비밀값도 **반드시 필요합니다** — PKCE 를 써도 Google 이 비밀값
+> 없이는 토큰 교환을 거부합니다. 파일은 본인만 보도록 `chmod 600` 해 두세요.
 
 ## 시트 형태
 
