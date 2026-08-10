@@ -53,18 +53,26 @@ jobs:
           fi
 
           # 두 언어 모두 출력이 나오는지 확인한다.
-          STRINGSMITH_LANG=en "$GITHUB_WORKSPACE/.build/debug/stringsmith" generate | grep -q "unchanged"
-          STRINGSMITH_LANG=ko "$GITHUB_WORKSPACE/.build/debug/stringsmith" generate | grep -q "변경 없음"
+          grep -q "unchanged" <<< "$(STRINGSMITH_LANG=en "$GITHUB_WORKSPACE/.build/debug/stringsmith" generate)"
+          grep -q "변경 없음" <<< "$(STRINGSMITH_LANG=ko "$GITHUB_WORKSPACE/.build/debug/stringsmith" generate)"
 
           # 파이프로 내보낼 때 색 이스케이프가 섞이면 로그·비교가 깨진다.
+          # 파일로 받아 두고 검사한다 — `| grep -q` 로 하면 grep 이 일치하는 순간 파이프를
+          # 닫아 stringsmith 가 SIGPIPE 로 죽고, pipefail 이 그걸 실패로 본다.
           ss="$GITHUB_WORKSPACE/.build/debug/stringsmith"
-          if "$ss" generate | grep -q $'\033'; then
+          "$ss" generate > plain.txt
+          FORCE_COLOR=1 "$ss" generate > forced.txt
+          NO_COLOR=1 FORCE_COLOR=1 "$ss" generate > suppressed.txt
+
+          if grep -q $'\033' plain.txt; then
             echo "::error::파이프 출력에 ANSI 이스케이프가 섞였습니다"
             exit 1
           fi
-          FORCE_COLOR=1 "$ss" generate | grep -q $'\033' || {
-            echo "::error::FORCE_COLOR 인데 색이 나오지 않았습니다"; exit 1; }
-          if NO_COLOR=1 FORCE_COLOR=1 "$ss" generate | grep -q $'\033'; then
+          if ! grep -q $'\033' forced.txt; then
+            echo "::error::FORCE_COLOR 인데 색이 나오지 않았습니다"
+            exit 1
+          fi
+          if grep -q $'\033' suppressed.txt; then
             echo "::error::NO_COLOR 가 FORCE_COLOR 를 이기지 못했습니다"
             exit 1
           fi
@@ -78,7 +86,18 @@ jobs:
           cd "$work"
           ss="$GITHUB_WORKSPACE/.build/debug/stringsmith"
           STRINGSMITH_LANG=en "$ss" init >/dev/null
+          # 이 시트는 **문제를 담는 게 목적**이다. 이름 충돌도 일부러 들어 있으므로
+          # 기본값(collision 에서 멈춤)을 그대로 쓰면 픽스처를 쓸 수가 없다.
+          # 충돌이 보고되는지는 아래에서 따로 확인한다.
+          python3 - <<'PY'
+          import json
+          d = json.load(open('.stringsmith.json'))
+          d['validation'] = {'failOn': []}
+          json.dump(d, open('.stringsmith.json', 'w'))
+          PY
           STRINGSMITH_LANG=en "$ss" validate | tee validate.txt
+          # 픽스처의 충돌이 실제로 보고되는지.
+          grep -q "Name collision" validate.txt
           # 경고는 원인이 된 키와 행을 짚어야 한다. 건수만으로는 고칠 곳을 모른다.
           grep -qE "translations missing" validate.txt
           grep -qE "\(row [0-9]+\)" validate.txt
@@ -132,9 +151,9 @@ jobs:
           for c in init generate validate drift preview auth; do
             "$ss" "$c" --help >/dev/null
           done
-          "$ss" init --help | grep -q -- --url
-          "$ss" validate --help | grep -q -- --strict
-          "$ss" drift --help | grep -q -- --strict
+          grep -q -- --url <<< "$("$ss" init --help)"
+          grep -q -- --strict <<< "$("$ss" validate --help)"
+          grep -q -- --strict <<< "$("$ss" drift --help)"
 
           # 설정 예시가 파싱될 뿐 아니라 실제로 돌아가는가.
           work="$(mktemp -d)"
@@ -201,16 +220,18 @@ jobs:
 
           swift build
           # 키가 그대로 나오면 번들이 문자열을 못 찾은 것이다.
-          swift run DemoApp --dump --lang ko | tee dump.txt
-          grep -q "스트링스미스 데모" dump.txt
-          if grep -qE "^(app|cart)\." dump.txt; then
+          # 검사 결과는 저장소 밖에 둔다. 안에 쓰면 예제 디렉터리가 더러워진다.
+          out="$(mktemp -d)"
+          swift run DemoApp --dump --lang ko | tee "$out/ko.txt"
+          grep -q "스트링스미스 데모" "$out/ko.txt"
+          if grep -qE "^(app|cart)\." "$out/ko.txt"; then
             echo "::error::번역 대신 키가 나왔습니다"
             exit 1
           fi
           # 복수형이 수에 따라 달라지는가 (영어는 one/other 가 다르다).
-          swift run DemoApp --dump --lang en | tee en.txt
-          grep -q "1 item" en.txt
-          grep -q "3 items" en.txt
+          swift run DemoApp --dump --lang en | tee "$out/en.txt"
+          grep -q "1 item" "$out/en.txt"
+          grep -q "3 items" "$out/en.txt"
 
       # 엑셀은 ZIP 이라 CSV 경로로 새어 들어가면 "UTF-8 이 아니다" 로만 끝난다.
       - name: XLSX source
@@ -284,7 +305,8 @@ jobs:
           python3 - <<'PY'
           import json
           d = json.load(open('.stringsmith.json'))
-          d['output']['artifacts'] = ['strings', 'stringsdict']
+          # swift 를 빼면 아래에서 접근자를 확인할 수 없다.
+          d['output']['artifacts'] = ['strings', 'stringsdict', 'swift']
           json.dump(d, open('.stringsmith.json', 'w'))
           PY
           STRINGSMITH_LANG=en "$ss" generate >/dev/null
@@ -310,7 +332,7 @@ jobs:
           # Apple 도구가 복수 규칙으로 컴파일하는지.
           out="$(mktemp -d)"
           xcrun xcstringstool compile Resources/Localizable.xcstrings -o "$out"
-          plutil -p "$out"/en.lproj/Localizable.stringsdict | grep -q NSStringPluralRuleType
+          grep -q NSStringPluralRuleType <<< "$(plutil -p "$out"/en.lproj/Localizable.stringsdict)"
           # 접근자는 묶음마다 하나이고 Int 를 받는다.
           grep -q "func items(_ arg1: Int)" Resources/L10n.swift
           if grep -qE "itemsOne|itemsOther" Resources/L10n.swift; then
@@ -382,23 +404,26 @@ jobs:
         run: |
           set -euo pipefail
           ss="$GITHUB_WORKSPACE/.build/debug/stringsmith"
+          # 이 단계는 저장소 루트에서 돈다. 검사 파일을 여기 쓰면 트리가 더러워진다.
+          out="$(mktemp -d)"
+
           # 클라이언트가 없으면 발급 절차 전체를 그대로 보여 줘야 한다.
           # 여기서 막힌 사람은 다른 문서를 찾아갈 수 없다.
-          STRINGSMITH_LANG=en "$ss" auth status | tee status.txt
-          grep -q "console.cloud.google.com" status.txt
-          grep -q "client.json" status.txt
-          grep -q "STRINGSMITH_GOOGLE_CLIENT_ID" status.txt
+          STRINGSMITH_LANG=en "$ss" auth status > "$out/status.txt"
+          grep -q "console.cloud.google.com" "$out/status.txt"
+          grep -q "client.json" "$out/status.txt"
+          grep -q "STRINGSMITH_GOOGLE_CLIENT_ID" "$out/status.txt"
           # 로그인한 적 없을 때 지울 게 없다고 말하고 0으로 끝나야 한다.
-          STRINGSMITH_LANG=en "$ss" auth logout | grep -q "nothing to remove"
-          STRINGSMITH_LANG=en "$ss" auth --help | grep -q "login"
+          grep -q "nothing to remove" <<< "$(STRINGSMITH_LANG=en "$ss" auth logout)"
+          grep -q "login" <<< "$(STRINGSMITH_LANG=en "$ss" auth --help)"
 
           # setup 은 빈 파일을 만들고, 이미 있으면 덮어쓰지 않아야 한다.
           home="$(mktemp -d)"
-          HOME="$home" STRINGSMITH_LANG=en "$ss" auth setup | grep -q "Created"
+          grep -q "Created" <<< "$(HOME="$home" STRINGSMITH_LANG=en "$ss" auth setup)"
           test -f "$home/.config/stringsmith/client.json"
           # 만들어 둔 파일은 미설정으로 읽혀야 한다 (값이 비어 있으므로).
-          HOME="$home" STRINGSMITH_LANG=en "$ss" auth status | grep -q "console.cloud.google.com"
-          HOME="$home" STRINGSMITH_LANG=en "$ss" auth setup | grep -q "already exists"
+          grep -q "console.cloud.google.com" <<< "$(HOME="$home" STRINGSMITH_LANG=en "$ss" auth status)"
+          grep -q "already exists" <<< "$(HOME="$home" STRINGSMITH_LANG=en "$ss" auth setup)"
 
       # 파서·변수 변환·코드 생성의 까다로운 경우를 모아둔 시트. 회귀를 여기서 잡는다.
       - name: Edge cases
@@ -409,6 +434,13 @@ jobs:
           cd "$work"
           ss="$GITHUB_WORKSPACE/.build/debug/stringsmith"
           STRINGSMITH_LANG=en "$ss" init
+          # 이 픽스처는 이름 충돌을 일부러 담고 있다 (Validate 단계 참고).
+          python3 - <<'PY'
+          import json
+          d = json.load(open('.stringsmith.json'))
+          d['validation'] = {'failOn': []}
+          json.dump(d, open('.stringsmith.json', 'w'))
+          PY
           STRINGSMITH_LANG=en "$ss" generate
           xcrun xcstringstool compile Resources/Localizable.xcstrings -o "$(mktemp -d)"
           swiftc -parse-as-library -typecheck Resources/L10n.swift
