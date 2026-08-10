@@ -57,9 +57,7 @@ extension Stringsmith {
                     "키 \(table.entries.count)개 · 언어 \(table.locales.count)개 "
                         + "(\(table.locales.joined(separator: ", ")))"))
 
-            for warning in result.warnings {
-                print("  ⚠️ \(warning)")
-            }
+            WarningOutput.print(result.warnings, verbose: verbose)
 
             // 변환은 기본으로 건수만 알린다. 검증이 목적이라 목록까지 볼 일은 드물다.
             if !result.conversions.isEmpty {

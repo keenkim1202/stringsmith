@@ -78,7 +78,10 @@ jobs:
           cd "$work"
           ss="$GITHUB_WORKSPACE/.build/debug/stringsmith"
           STRINGSMITH_LANG=en "$ss" init >/dev/null
-          STRINGSMITH_LANG=en "$ss" validate
+          STRINGSMITH_LANG=en "$ss" validate | tee validate.txt
+          # 경고는 원인이 된 키와 행을 짚어야 한다. 건수만으로는 고칠 곳을 모른다.
+          grep -qE "translations missing" validate.txt
+          grep -qE "\(row [0-9]+\)" validate.txt
           # 검증만 하겠다고 불렀는데 산출물이 생기면 안 된다.
           if [ -d Resources ]; then
             echo "::error::validate 가 파일을 만들었습니다"

@@ -56,13 +56,22 @@ public struct SwiftCodegen: Sendable {
     public struct Result: Sendable {
         public var source: String
         /// 이름이 충돌해 접미사를 붙인 항목.
-        public var collisions: [String]
+        public var collisions: [Collision]
+    }
+
+    /// 같은 Swift 이름이 되어 접미사를 붙인 키.
+    public struct Collision: Sendable, Equatable {
+        public var key: String
+        /// 접미사를 붙인 뒤의 이름.
+        public var identifier: String
+        /// 시트에서의 자리. 고칠 곳은 코드가 아니라 시트다.
+        public var location: String
     }
 
     // MARK: - 생성
 
     public func generate(table: LocalizationTable) -> Result {
-        var collisions: [String] = []
+        var collisions: [Collision] = []
         let members = table.entries.map { entry in
             Member(
                 entry: entry,
@@ -96,7 +105,11 @@ public struct SwiftCodegen: Sendable {
                 if used.contains(member.identifier) {
                     var suffix = 2
                     while used.contains("\(member.identifier)\(suffix)") { suffix += 1 }
-                    collisions.append("\(member.entry.key) → \(member.identifier)\(suffix)")
+                    collisions.append(
+                        Collision(
+                            key: member.entry.key,
+                            identifier: "\(member.identifier)\(suffix)",
+                            location: member.entry.sourceLabel))
                     member.identifier = "\(member.identifier)\(suffix)"
                 }
                 used.insert(member.identifier)

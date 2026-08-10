@@ -342,7 +342,7 @@ struct PipelineTests {
         )
         let result = try pipeline.build(dryRun: true)
         #expect(result.warnings.count == 1)
-        #expect(result.warnings[0].contains("en"))
+        #expect(result.warnings[0].summary.contains("en"))
         #expect(result.table.entries.count == 2)
         try? FileManager.default.removeItem(atPath: directory)
     }
@@ -395,7 +395,10 @@ struct ValidateTests {
         let result = try pipeline.validate()
 
         #expect(result.conversions.count == 2)
-        #expect(result.warnings.contains { $0.contains("en") })
+        // 어느 키가 비어 있는지까지 나와야 한다 — 건수만으로는 고칠 곳을 모른다.
+        let missing = try #require(result.warnings.first { $0.summary.contains("en") })
+        #expect(missing.items.map(\.key) == ["missing"])
+        #expect(missing.items.first?.location == "3")
     }
 
     /// 이름 충돌은 코드 생성에서 드러나지만 고칠 곳은 시트다. 시트를 고칠 사람이 봐야 한다.
@@ -408,7 +411,12 @@ struct ValidateTests {
                 a.helloWorld,나,B
                 """)
         let result = try pipeline.validate()
-        #expect(result.warnings.contains { $0.contains("helloWorld") })
+        let collision = try #require(
+            result.warnings.first { $0.summary.contains("helloWorld") })
+        // 접미사가 붙는 쪽은 정렬에서 뒤로 밀린 a.hello_world 다.
+        #expect(collision.items.first?.key == "a.hello_world")
+        // 고칠 곳은 코드가 아니라 시트다. 그 자리를 짚어야 한다.
+        #expect(collision.items.first?.location == "2")
     }
 
     /// swift 를 만들지 않는 설정이면 Swift 이름 충돌은 애초에 문제가 아니다.

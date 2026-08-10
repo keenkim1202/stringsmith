@@ -59,6 +59,45 @@ public struct LocalizationTable: Sendable, Equatable {
     }
 }
 
+// MARK: - 경고
+
+/// 생성을 막지는 않지만 사람이 봐야 하는 것.
+///
+/// 문자열 한 줄로 두지 않는 이유는 **어느 키가 시트 몇 행에 있는지** 가 따라다녀야 하기
+/// 때문이다. "번역 3건 누락" 만 보면 어디를 고쳐야 할지 알 수 없고, 시트를 고칠 사람에게는
+/// 그게 유일하게 필요한 정보다.
+public struct Warning: Sendable, Equatable {
+    /// 한 줄 요약.
+    public var summary: String
+    /// 관련된 항목들. 비어 있을 수 있다.
+    public var items: [Item]
+
+    public init(summary: String, items: [Item] = []) {
+        self.summary = summary
+        self.items = items
+    }
+
+    public struct Item: Sendable, Equatable {
+        public var key: String
+        /// 시트에서의 자리. 탭을 이어 붙였으면 `errors!2` 처럼 탭까지 붙는다.
+        public var location: String
+        /// 로케일처럼 덧붙일 것.
+        public var note: String?
+
+        public init(key: String, location: String, note: String? = nil) {
+            self.key = key
+            self.location = location
+            self.note = note
+        }
+
+        /// `greeting [ja] (row 12)`
+        public var formatted: String {
+            let head = note.map { "\(key) [\($0)]" } ?? key
+            return head + tr(" (row \(location))", " (행 \(location))")
+        }
+    }
+}
+
 // MARK: - 오류
 
 /// 사용자에게 그대로 보여줄 수 있는 오류.

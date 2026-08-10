@@ -364,9 +364,7 @@ extension Stringsmith {
                 "키 \(table.entries.count)개 · 언어 \(table.locales.count)개")
                 + " (\(table.locales.joined(separator: ", ")))")
 
-            for warning in result.warnings {
-                print("  ⚠️ \(warning)")
-            }
+            WarningOutput.print(result.warnings, verbose: verbose)
 
             // 문자열을 고쳤으면 반드시 보여준다. 말없이 바꾸는 도구는 신뢰를 잃는다.
             if !result.conversions.isEmpty {

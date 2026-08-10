@@ -265,8 +265,20 @@ artifacts in someone else's working directory.
 
 | Flag | Meaning |
 |---|---|
-| `-v` `--verbose` | List every variable conversion |
+| `-v` `--verbose` | List every variable conversion, and every item behind a warning |
 | `--strict` | Exit non-zero on warnings too, not just errors |
+
+Warnings name the keys and rows behind them, since a count alone does not tell you where to
+go:
+
+```
+  ⚠️ ja: 3/100 translations missing
+       missing.ja_only (row 98)
+       missing.both (row 100)
+       missing.whitespace_only (row 101)
+```
+
+Five items are listed by default; `-v` shows the rest. `generate` prints the same detail.
 
 Warnings do not fail by default: a missing translation is the normal state of a sheet someone
 is still filling in. `--strict` is for CI, where it may not be.

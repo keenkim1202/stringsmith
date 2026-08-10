@@ -183,7 +183,7 @@ public struct Pipeline: Sendable {
         /// 이미 동일해서 건드리지 않은 경로.
         public var unchanged: [String]
         /// 치명적이지 않은 문제. CLI가 사람에게 보여준다.
-        public var warnings: [String]
+        public var warnings: [Warning]
         /// 변수 표기가 iOS 포맷으로 바뀐 기록. 말없이 고치지 않기 위해 항상 돌려준다.
         public var conversions: [PlaceholderProcessor.Conversion]
     }
@@ -196,7 +196,7 @@ public struct Pipeline: Sendable {
         /// 변수 변환까지 끝난 테이블.
         public var table: LocalizationTable
         /// 치명적이지 않은 문제.
-        public var warnings: [String]
+        public var warnings: [Warning]
         /// 변수 표기가 바뀐 기록.
         public var conversions: [PlaceholderProcessor.Conversion]
     }
@@ -213,7 +213,12 @@ public struct Pipeline: Sendable {
         if !processed.errors.isEmpty {
             throw StringsmithError.validationFailed(issues: processed.errors.map(\.formatted))
         }
-        var warnings = processed.warnings.map(\.formatted)
+        // 변수 문제는 이미 키·행을 알고 있다. 그대로 옮긴다.
+        var warnings = processed.warnings.map {
+            Warning(
+                summary: $0.message,
+                items: [Warning.Item(key: $0.key, location: $0.row, note: $0.locale)])
+        }
         let table = processed.table
 
         // V5 — 번역 누락 (경고)
@@ -221,13 +226,15 @@ public struct Pipeline: Sendable {
         for locale in table.locales where locale != sourceLocale {
             let missing = table.entries.filter { ($0.values[locale] ?? "").isEmpty }
             if !missing.isEmpty {
-                let examples = missing.prefix(3).map(\.key).joined(separator: ", ")
                 warnings.append(
-                    tr(
-                        "\(locale): \(missing.count)/\(table.entries.count) translations missing",
-                        "\(locale): 번역 \(missing.count)/\(table.entries.count)건 누락")
-                        + tr(" (e.g. \(examples))", " (예: \(examples))")
-                )
+                    Warning(
+                        summary: tr(
+                            "\(locale): \(missing.count)/\(table.entries.count) translations missing",
+                            "\(locale): 번역 \(missing.count)/\(table.entries.count)건 누락"),
+                        // 어느 키를 채워야 하는지 세는 것만으로는 알 수 없다.
+                        items: missing.map {
+                            Warning.Item(key: $0.key, location: $0.sourceLabel)
+                        }))
             }
         }
 
@@ -240,9 +247,13 @@ public struct Pipeline: Sendable {
             )
             for collision in codegen.generate(table: table).collisions {
                 warnings.append(
-                    tr(
-                        "Name collision, suffixed: \(collision)",
-                        "Swift 이름 충돌로 접미사를 붙였습니다: \(collision)"))
+                    Warning(
+                        summary: tr(
+                            "Name collision, suffixed: \(collision.identifier)",
+                            "Swift 이름 충돌로 접미사를 붙였습니다: \(collision.identifier)"),
+                        items: [
+                            Warning.Item(key: collision.key, location: collision.location)
+                        ]))
             }
         }
 
@@ -303,9 +314,10 @@ public struct Pipeline: Sendable {
 
             default:
                 warnings.append(
-                    tr(
-                        "Skipping unknown artifact \"\(artifact)\".",
-                        "알 수 없는 산출물 \"\(artifact)\" 는 건너뜁니다."))
+                    Warning(
+                        summary: tr(
+                            "Skipping unknown artifact \"\(artifact)\".",
+                            "알 수 없는 산출물 \"\(artifact)\" 는 건너뜁니다.")))
             }
         }
 
