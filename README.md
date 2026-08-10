@@ -145,6 +145,11 @@ mapping for you.
 - **Optional:** screen (namespace + comment), description (comment)
 - Handles quoted commas/newlines, CRLF, BOM, blank rows, and a header row that isn't the first row
 
+> Leading and trailing spaces in a translation are kept. `"{name} "` with a trailing space is
+> a real thing people write, and trimming it leaves no way to express it. A cell holding only
+> whitespace still counts as untranslated — otherwise a missing translation would go unreported.
+> Keys, screens and comments are still trimmed; a stray space there is a mistake.
+
 ## What it generates
 
 | Artifact | Output |
