@@ -70,9 +70,35 @@ selects the tab; add `"gid"` to the config to override it.
 The last successful response is cached under `.stringsmith/cache/`. If the network is unreachable,
 the cached copy is used and a warning is printed — a build should not stop because you are offline.
 
-> **Only sheets shared as "Anyone with the link can view" work today.** A sheet restricted to your
-> organization returns a sign-in page, and stringsmith reports that instead of failing on a parse
-> error. Signing in with your Google account (OAuth) is not implemented yet.
+### Private sheets
+
+A sheet that is not shared publicly needs a sign-in:
+
+```bash
+ss auth login       # opens the browser once
+ss generate         # now reads through the Sheets API
+ss auth status      # or: ss auth logout
+```
+
+After signing in, any sheet **your Google account can open** is readable — you do not have to
+loosen its sharing settings. Without a sign-in, stringsmith keeps using the public export, so
+public sheets need no setup at all.
+
+Sign-in uses PKCE and asks for one scope, `spreadsheets.readonly`. The refresh token is written
+to `~/.config/stringsmith/credentials.json` with mode `600`. `ss auth logout` deletes it; to
+revoke access on Google's side, visit
+[myaccount.google.com/permissions](https://myaccount.google.com/permissions).
+
+### Using your own OAuth client
+
+Builds ship with a shared client. To use your organization's instead — which avoids the
+unverified-app warning and any user cap — create a **Desktop app** OAuth client in Google Cloud
+Console with the Google Sheets API enabled, then:
+
+```bash
+export STRINGSMITH_GOOGLE_CLIENT_ID=…apps.googleusercontent.com
+export STRINGSMITH_GOOGLE_CLIENT_SECRET=…   # only if your client requires one
+```
 
 ## Sheet format
 
@@ -175,6 +201,10 @@ locale on its own. `.stringsmith.json` is found by walking up from the current d
 |---|---|---|
 | `-o` `--output` | init | Output directory (default `Resources`) |
 | `--url` | init | Google Sheets share URL |
+
+### `ss auth login` · `logout` · `status`
+
+Sign in to Google so private sheets can be read.
 | `-r` `--header-row` | init | Header row number, 1-based |
 | `-s` `--source-locale` | init | Source locale |
 | `--artifacts` | init | `xcstrings` · `swift` |

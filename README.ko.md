@@ -69,9 +69,34 @@ ss generate
 마지막으로 성공한 응답은 `.stringsmith/cache/` 에 남습니다. 네트워크가 안 되면 캐시로 진행하며
 경고를 냅니다 — 오프라인이라고 빌드가 멈추면 곤란하니까요.
 
-> **지금은 "링크가 있는 모든 사용자" 로 공유된 시트만 됩니다.** 조직 제한 시트는 로그인 안내
-> 페이지를 돌려주는데, stringsmith가 파싱 오류 대신 그 사실을 알려줍니다. Google 계정 로그인
-> (OAuth) 은 아직 구현하지 않았습니다.
+### 비공개 시트
+
+공개 공유가 아닌 시트는 로그인이 필요합니다:
+
+```bash
+ss auth login       # 브라우저가 한 번 열립니다
+ss generate         # 이제 Sheets API 로 읽습니다
+ss auth status      # 또는: ss auth logout
+```
+
+로그인하면 **내 Google 계정으로 열 수 있는 시트**는 전부 읽힙니다 — 공유 설정을 풀지 않아도
+됩니다. 로그인하지 않으면 지금처럼 공개 내보내기를 쓰므로, 공개 시트는 설정할 게 없습니다.
+
+로그인은 PKCE 를 쓰고 `spreadsheets.readonly` 범위 하나만 요구합니다. refresh token 은
+`~/.config/stringsmith/credentials.json` 에 권한 `600` 으로 저장됩니다. `ss auth logout` 이
+파일을 지우고, Google 쪽 접근 권한까지 끊으려면
+[myaccount.google.com/permissions](https://myaccount.google.com/permissions) 에서 해제합니다.
+
+### 자체 OAuth 클라이언트 사용
+
+배포본에는 공용 클라이언트가 들어 있습니다. 조직 클라이언트를 쓰려면 — 미검증 앱 경고와
+사용자 한도를 피할 수 있습니다 — Google Cloud Console 에서 Google Sheets API 를 켜고
+**데스크톱 앱** OAuth 클라이언트를 만든 뒤:
+
+```bash
+export STRINGSMITH_GOOGLE_CLIENT_ID=…apps.googleusercontent.com
+export STRINGSMITH_GOOGLE_CLIENT_SECRET=…   # 클라이언트가 요구할 때만
+```
 
 ## 시트 형태
 
@@ -170,6 +195,10 @@ ss preview            # 확인 앱에서 열기
 |---|---|---|
 | `-o` `--output` | init | 산출물 디렉터리 (기본 `Resources`) |
 | `--url` | init | Google Sheets 공유 URL |
+
+### `ss auth login` · `logout` · `status`
+
+비공개 시트를 읽기 위해 Google 에 로그인합니다.
 | `-r` `--header-row` | init | 헤더 행 번호 (1부터) |
 | `-s` `--source-locale` | init | 원문 로케일 |
 | `--artifacts` | init | `xcstrings` · `swift` |

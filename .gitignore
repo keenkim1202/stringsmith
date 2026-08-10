@@ -5,6 +5,7 @@
 *.xcworkspace
 DerivedData/
 .netrc
+*.env
 
 # 예제 실행 산출물
 Examples/out/

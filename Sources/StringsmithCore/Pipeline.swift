@@ -53,7 +53,9 @@ public struct Pipeline: Sendable {
                 url: url,
                 gid: configuration.source.gid,
                 // 네트워크가 안 될 때 쓸 마지막 사본. 생성물이 아니므로 .stringsmith 아래 둔다.
-                cachePath: resolve(".stringsmith/cache/sheet.csv")
+                cachePath: resolve(".stringsmith/cache/sheet.csv"),
+                // 로그인되어 있으면 Sheets API 로, 아니면 공개 링크로 읽는다.
+                tokens: FileTokenStore()
             )
         default:
             return LocalFileSource(path: resolve(configuration.source.path))

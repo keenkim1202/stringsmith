@@ -87,45 +87,12 @@ public struct SheetResponse: Sendable {
 /// URL 하나를 받아 응답을 돌려준다. 테스트에서는 가짜 구현을 넣는다.
 public typealias SheetFetch = @Sendable (URL) throws -> SheetResponse
 
-/// `URLSession` 기본 구현.
-///
-/// CLI 는 동기 흐름이라 세마포어로 기다린다. `URLSession.shared` 는 완료를 자체 큐에서
-/// 전달하므로 메인 스레드에서 기다려도 교착이 생기지 않는다.
+/// 시트 하나를 내려받는다. 실제 전송은 `performRequest` 가 한다.
 public func downloadSheet(_ url: URL) throws -> SheetResponse {
-    final class Box: @unchecked Sendable {
-        var result: Result<SheetResponse, Error>?
-    }
-    let box = Box()
-    let done = DispatchSemaphore(value: 0)
-
     var request = URLRequest(url: url)
     request.timeoutInterval = 30
     // 리다이렉트를 따라가야 한다 — Google 은 export 요청을 다른 호스트로 넘긴다.
-    let task = URLSession.shared.dataTask(with: request) { data, response, error in
-        defer { done.signal() }
-        if let error {
-            box.result = .failure(error)
-            return
-        }
-        let http = response as? HTTPURLResponse
-        box.result = .success(
-            SheetResponse(
-                status: http?.statusCode ?? 0,
-                mimeType: http?.mimeType,
-                body: data ?? Data()
-            ))
-    }
-    task.resume()
-    done.wait()
-
-    switch box.result {
-    case let .success(response): return response
-    case let .failure(error): throw error
-    case nil:
-        throw StringsmithError.io(
-            path: url.absoluteString,
-            reason: tr("No response.", "응답을 받지 못했습니다."))
-    }
+    return try performRequest(request)
 }
 
 // MARK: - Google Sheets 소스
@@ -136,17 +103,46 @@ public struct GoogleSheetsSource: SheetSource {
     /// 마지막으로 받은 내용을 둘 파일. 네트워크가 안 되면 이걸 쓴다.
     public let cachePath: String?
     let fetch: SheetFetch
+    /// 로그인 토큰이 있으면 Sheets API 로, 없으면 공개 CSV 내보내기로 읽는다.
+    let tokens: TokenStore?
+    let authorized: HTTPFetch
 
-    public init(url: String, gid: String? = nil, cachePath: String? = nil, fetch: @escaping SheetFetch = downloadSheet) {
+    public init(
+        url: String,
+        gid: String? = nil,
+        cachePath: String? = nil,
+        tokens: TokenStore? = nil,
+        fetch: @escaping SheetFetch = downloadSheet,
+        authorized: @escaping HTTPFetch = performRequest
+    ) {
         self.url = url
         self.gid = gid
         self.cachePath = cachePath
+        self.tokens = tokens
         self.fetch = fetch
+        self.authorized = authorized
     }
 
     public func rows() throws -> [[String]] {
+        if let rows = try authorizedRows() { return rows }
         let text = try download()
         return CSVParser().parse(text)
+    }
+
+    /// 로그인되어 있을 때만 API 경로를 탄다. 아니면 nil 을 돌려 공개 링크로 넘긴다.
+    ///
+    /// 로그인을 강제하지 않는 건 의도한 것이다 — 공개 시트를 쓰는 사람은 지금까지처럼
+    /// 아무 설정 없이 계속 쓸 수 있어야 한다.
+    func authorizedRows() throws -> [[String]]? {
+        guard let tokens, (try? tokens.load()) != nil else { return nil }
+        guard let ids = GoogleSheetsURL.identifiers(from: url) else { return nil }
+
+        let oauth = GoogleOAuth(fetch: authorized)
+        let token = try oauth.validAccessToken(store: tokens)
+        let api = GoogleSheetsAPI(accessToken: token, fetch: authorized)
+        let rows = try api.rows(spreadsheetID: ids.id, gid: gid ?? ids.gid)
+        saveCache(CSVParser.serialize(rows))
+        return rows
     }
 
     /// 내려받아 캐시에 저장한다. 실패하면 캐시로 대체한다.

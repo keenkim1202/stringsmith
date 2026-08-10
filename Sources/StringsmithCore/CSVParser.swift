@@ -107,6 +107,21 @@ public struct CSVParser: Sendable {
     }
 
     /// 파일에서 읽어 파싱한다.
+    /// 행 × 열을 RFC 4180 CSV 로 되돌린다.
+    ///
+    /// API 로 읽은 내용을 캐시에 남기려면 필요하다 — 캐시는 오프라인일 때 CSV 로 다시 읽힌다.
+    public static func serialize(_ rows: [[String]]) -> String {
+        rows.map { row in
+            row.map { field in
+                // 구분자·따옴표·줄바꿈이 있으면 감싸고, 안의 따옴표는 겹쳐 쓴다.
+                let needsQuoting = field.contains(",") || field.contains("\"")
+                    || field.contains("\n") || field.contains("\r")
+                guard needsQuoting else { return field }
+                return "\"" + field.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+            }.joined(separator: ",")
+        }.joined(separator: "\n")
+    }
+
     public func parseFile(at path: String) throws -> [[String]] {
         guard let data = FileManager.default.contents(atPath: path) else {
             throw StringsmithError.io(path: path, reason: tr("Could not read the file.", "파일을 읽을 수 없습니다."))
