@@ -347,3 +347,107 @@ struct PipelineTests {
         try? FileManager.default.removeItem(atPath: directory)
     }
 }
+
+// MARK: - 검증만 하기
+
+@Suite("validate")
+struct ValidateTests {
+
+    func makePipeline(csv: String, artifacts: [String] = ["xcstrings", "swift"]) throws
+        -> (Pipeline, String)
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("stringsmith-validate-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try Data(csv.utf8).write(to: directory.appendingPathComponent("sheet.csv"))
+
+        let configuration = Configuration(
+            source: SourceConfig(path: "sheet.csv", defaultLocale: "ko"),
+            columns: ColumnMapping(key: "키", languages: ["ko": "한국어", "en": "영어"]),
+            output: OutputConfig(artifacts: artifacts, path: "out")
+        )
+        return (
+            Pipeline(configuration: configuration, baseDirectory: directory.path), directory.path
+        )
+    }
+
+    /// 검증만 하겠다고 불렀는데 파일이 생기면 남의 작업 디렉터리를 어지럽히는 것이다.
+    @Test("파일을 하나도 만들지 않는다")
+    func writesNothing() throws {
+        let (pipeline, directory) = try makePipeline(
+            csv: """
+                키,한국어,영어
+                a,가,A
+                """)
+        _ = try pipeline.validate()
+
+        #expect(FileManager.default.fileExists(atPath: directory + "/out") == false)
+    }
+
+    @Test("변수 변환과 누락 경고를 그대로 돌려준다")
+    func reportsWhatGenerateWould() throws {
+        let (pipeline, _) = try makePipeline(
+            csv: """
+                키,한국어,영어
+                greeting,{name}님,Hi {name}
+                missing,있음,
+                """)
+        let result = try pipeline.validate()
+
+        #expect(result.conversions.count == 2)
+        #expect(result.warnings.contains { $0.contains("en") })
+    }
+
+    /// 이름 충돌은 코드 생성에서 드러나지만 고칠 곳은 시트다. 시트를 고칠 사람이 봐야 한다.
+    @Test("Swift 이름 충돌도 여기서 잡는다")
+    func catchesNameCollisions() throws {
+        let (pipeline, _) = try makePipeline(
+            csv: """
+                키,한국어,영어
+                a.hello_world,가,A
+                a.helloWorld,나,B
+                """)
+        let result = try pipeline.validate()
+        #expect(result.warnings.contains { $0.contains("helloWorld") })
+    }
+
+    /// swift 를 만들지 않는 설정이면 Swift 이름 충돌은 애초에 문제가 아니다.
+    @Test("swift 산출물이 없으면 충돌을 따지지 않는다")
+    func skipsCollisionsWithoutSwiftOutput() throws {
+        let (pipeline, _) = try makePipeline(
+            csv: """
+                키,한국어,영어
+                a.hello_world,가,A
+                a.helloWorld,나,B
+                """,
+            artifacts: ["xcstrings"])
+        #expect(try pipeline.validate().warnings.isEmpty)
+    }
+
+    @Test("치명적 오류는 그대로 던진다")
+    func stillThrowsOnErrors() throws {
+        let (pipeline, _) = try makePipeline(
+            csv: """
+                키,한국어,영어
+                dup,가,A
+                dup,나,B
+                """)
+        #expect(throws: StringsmithError.self) { try pipeline.validate() }
+    }
+
+    /// generate 는 validate 를 거쳐 간다. 두 경로가 다른 말을 하면 안 된다.
+    @Test("generate 와 같은 경고를 낸다 — 중복 없이")
+    func matchesGenerateExactly() throws {
+        let csv = """
+            키,한국어,영어
+            a.hello_world,가,A
+            a.helloWorld,나,
+            """
+        let (validating, _) = try makePipeline(csv: csv)
+        let (building, _) = try makePipeline(csv: csv)
+
+        let checked = try validating.validate()
+        let built = try building.build(dryRun: true)
+        #expect(checked.warnings == built.warnings)
+    }
+}

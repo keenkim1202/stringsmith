@@ -191,19 +191,29 @@ public struct Pipeline: Sendable {
     /// 이번 실행에서 만들 산출물. `only`가 주어지면 설정을 덮어쓴다.
     var artifacts: [String] { only ?? configuration.output.artifacts }
 
-    /// 산출물을 만든다. `dryRun`이면 파일을 쓰지 않고 결과만 계산한다.
-    public func build(dryRun: Bool = false) throws -> BuildResult {
+    /// 검증 결과. 파일은 만들지 않는다.
+    public struct ValidationResult: Sendable {
+        /// 변수 변환까지 끝난 테이블.
+        public var table: LocalizationTable
+        /// 치명적이지 않은 문제.
+        public var warnings: [String]
+        /// 변수 표기가 바뀐 기록.
+        public var conversions: [PlaceholderProcessor.Conversion]
+    }
+
+    /// 시트를 읽어 검증만 한다.
+    ///
+    /// `build` 에서 산출물 생성을 뺀 앞부분이다. 시트를 고친 직후 빠르게 돌려 보는 용도라
+    /// 코드 생성이나 직렬화를 하지 않는다 — 통과하면 `generate` 도 통과한다.
+    public func validate() throws -> ValidationResult {
         let raw = try loadTable()
-        var written: [String] = []
-        var unchanged: [String] = []
-        var warnings: [String] = []
 
         // 변수 자리를 iOS 포맷으로 변환한다. 오류는 모아서 한 번에 던진다.
         let processed = PlaceholderProcessor(config: configuration.placeholders).process(raw)
         if !processed.errors.isEmpty {
             throw StringsmithError.validationFailed(issues: processed.errors.map(\.formatted))
         }
-        warnings.append(contentsOf: processed.warnings.map(\.formatted))
+        var warnings = processed.warnings.map(\.formatted)
         let table = processed.table
 
         // V5 — 번역 누락 (경고)
@@ -221,6 +231,33 @@ public struct Pipeline: Sendable {
             }
         }
 
+        // 이름 충돌은 코드 생성 단계에서 드러나지만 원인은 시트에 있다. 여기서 짚지 않으면
+        // 시트를 고칠 사람이 못 보고, generate 를 돌리는 개발자만 보게 된다.
+        if artifacts.contains("swift") {
+            let codegen = SwiftCodegen(
+                options: configuration.output.swift,
+                tableName: configuration.output.tableName
+            )
+            for collision in codegen.generate(table: table).collisions {
+                warnings.append(
+                    tr(
+                        "Name collision, suffixed: \(collision)",
+                        "Swift 이름 충돌로 접미사를 붙였습니다: \(collision)"))
+            }
+        }
+
+        return ValidationResult(
+            table: table, warnings: warnings, conversions: processed.conversions)
+    }
+
+    /// 산출물을 만든다. `dryRun`이면 파일을 쓰지 않고 결과만 계산한다.
+    public func build(dryRun: Bool = false) throws -> BuildResult {
+        let checked = try validate()
+        let table = checked.table
+        var written: [String] = []
+        var unchanged: [String] = []
+        var warnings = checked.warnings
+
         for artifact in artifacts {
             switch artifact {
             case "swift":
@@ -229,12 +266,7 @@ public struct Pipeline: Sendable {
                     tableName: configuration.output.tableName
                 )
                 let result = codegen.generate(table: table)
-                for collision in result.collisions {
-                    warnings.append(
-                        tr(
-                            "Name collision, suffixed: \(collision)",
-                            "Swift 이름 충돌로 접미사를 붙였습니다: \(collision)"))
-                }
+                // 충돌 경고는 validate 가 이미 넣었다. 여기서 또 넣으면 두 번 나온다.
                 let path = resolve(
                     configuration.output.path + "/" + configuration.output.swift.enumName + ".swift"
                 )
@@ -279,7 +311,7 @@ public struct Pipeline: Sendable {
 
         return BuildResult(
             table: table, written: written, unchanged: unchanged,
-            warnings: warnings, conversions: processed.conversions
+            warnings: warnings, conversions: checked.conversions
         )
     }
 

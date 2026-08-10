@@ -257,6 +257,20 @@ locale on its own. `.stringsmith.json` is found by walking up from the current d
 | `-o` `--output` | init | Output directory (default `Resources`) |
 | `--url` | init | Google Sheets share URL |
 
+### `ss validate`
+
+Check the sheet without writing anything. Same rules `generate` applies, minus the files —
+for the person editing the sheet, who wants to know it is safe to hand over, not to leave
+artifacts in someone else's working directory.
+
+| Flag | Meaning |
+|---|---|
+| `-v` `--verbose` | List every variable conversion |
+| `--strict` | Exit non-zero on warnings too, not just errors |
+
+Warnings do not fail by default: a missing translation is the normal state of a sheet someone
+is still filling in. `--strict` is for CI, where it may not be.
+
 ### `ss auth setup` · `login` · `logout` · `status`
 
 `setup` creates the client file to fill in; `login` signs in to Google so private sheets can be read.

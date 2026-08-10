@@ -69,6 +69,29 @@ jobs:
             exit 1
           fi
 
+      # validate 는 파일을 만들지 않아야 하고, generate 와 같은 판단을 해야 한다.
+      - name: Validate command
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          cp Examples/edge-cases.csv "$work/strings.csv"
+          cd "$work"
+          ss="$GITHUB_WORKSPACE/.build/debug/stringsmith"
+          STRINGSMITH_LANG=en "$ss" init >/dev/null
+          STRINGSMITH_LANG=en "$ss" validate
+          # 검증만 하겠다고 불렀는데 산출물이 생기면 안 된다.
+          if [ -d Resources ]; then
+            echo "::error::validate 가 파일을 만들었습니다"
+            exit 1
+          fi
+          # 경고는 기본으로 통과, --strict 에서는 실패.
+          if ! STRINGSMITH_LANG=en "$ss" validate >/dev/null; then
+            echo "::error::경고만 있는데 validate 가 실패했습니다"; exit 1
+          fi
+          if STRINGSMITH_LANG=en "$ss" validate --strict >/dev/null 2>&1; then
+            echo "::error::--strict 인데 경고를 통과시켰습니다"; exit 1
+          fi
+
       # 인증 커맨드는 네트워크 없이도 올바른 안내를 내야 한다.
       - name: Auth commands
         run: |
