@@ -34,8 +34,25 @@ public struct XCStringsDocument: Codable, Sendable, Equatable {
     }
 
     public struct Localization: Codable, Sendable, Equatable {
-        public var stringUnit: StringUnit
-        public init(stringUnit: StringUnit) { self.stringUnit = stringUnit }
+        /// 복수형이면 `nil`. 그때는 `variations` 가 대신 들어간다.
+        public var stringUnit: StringUnit?
+        /// 복수형. String Catalog 는 평평한 키 두 개가 아니라 이 구조를 쓴다.
+        public var variations: Variations?
+
+        public init(stringUnit: StringUnit) {
+            self.stringUnit = stringUnit
+            self.variations = nil
+        }
+
+        public init(plural: [String: StringUnit]) {
+            self.stringUnit = nil
+            self.variations = Variations(plural: plural.mapValues { Localization(stringUnit: $0) })
+        }
+    }
+
+    public struct Variations: Codable, Sendable, Equatable {
+        /// 범주 이름 → 그 범주의 값.
+        public var plural: [String: Localization]
     }
 
     public struct StringUnit: Codable, Sendable, Equatable {
@@ -55,9 +72,17 @@ extension XCStringsDocument {
     ///
     /// 값이 빈 문자열인 로케일은 **넣지 않는다.** 빈 값을 `translated`로 넣으면
     /// Xcode가 번역이 있는 것으로 간주해 누락이 감춰진다.
-    public init(table: LocalizationTable) {
+    public init(table: LocalizationTable, plurals: [PluralGroup] = []) {
         var strings: [String: Entry] = [:]
-        for entry in table.entries {
+
+        // 복수형으로 묶인 행은 개별 키로 넣지 않는다. 넣으면 같은 문구가 두 군데에 생기고,
+        // Xcode 는 그걸 서로 다른 문자열로 본다.
+        var absorbed = Set<String>()
+        for group in plurals {
+            for entry in group.variants.values { absorbed.insert(entry.key) }
+        }
+
+        for entry in table.entries where !absorbed.contains(entry.key) {
             var localizations: [String: Localization] = [:]
             for (locale, value) in entry.values where !value.isEmpty {
                 localizations[locale] = Localization(stringUnit: StringUnit(value: value))
@@ -68,6 +93,29 @@ extension XCStringsDocument {
                 localizations: localizations.isEmpty ? nil : localizations
             )
         }
+
+        for group in plurals {
+            var localizations: [String: Localization] = [:]
+            // 로케일마다 그 언어에 값이 있는 범주만 모은다.
+            for locale in Set(group.variants.values.flatMap(\.values.keys)).sorted() {
+                var byCategory: [String: StringUnit] = [:]
+                for (category, entry) in group.variants {
+                    guard let value = entry.values[locale], !value.isEmpty else { continue }
+                    byCategory[category.rawValue] = StringUnit(value: value)
+                }
+                guard !byCategory.isEmpty else { continue }
+                localizations[locale] = Localization(plural: byCategory)
+            }
+            guard let anchor = group.variants.sorted(by: { $0.key < $1.key }).first?.value
+            else { continue }
+
+            strings[group.key] = Entry(
+                comment: Self.comment(for: anchor),
+                extractionState: "manual",
+                localizations: localizations.isEmpty ? nil : localizations
+            )
+        }
+
         self.init(sourceLanguage: table.sourceLocale, strings: strings)
     }
 

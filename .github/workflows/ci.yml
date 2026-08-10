@@ -210,6 +210,33 @@ jobs:
           plutil -lint Resources/*/Localizable.stringsdict
           plutil -lint Resources/*/Localizable.strings
 
+          # String Catalog 도 복수형을 제대로 담아야 한다.
+          rm -rf Resources
+          STRINGSMITH_LANG=en "$ss" generate --format xcstrings >/dev/null
+          python3 - <<'PY'
+          import json, sys
+          d = json.load(open('Resources/Localizable.xcstrings'))['strings']
+          if 'cart.items' not in d:
+              sys.exit('복수형이 묶이지 않았습니다')
+          if 'cart.items.one' in d:
+              sys.exit('접미사 키가 따로 남았습니다')
+          en = d['cart.items']['localizations']['en']
+          if 'variations' not in en:
+              sys.exit('variations.plural 이 아닙니다')
+          PY
+          # Apple 도구가 복수 규칙으로 컴파일하는지.
+          out="$(mktemp -d)"
+          xcrun xcstringstool compile Resources/Localizable.xcstrings -o "$out"
+          plutil -p "$out"/en.lproj/Localizable.stringsdict | grep -q NSStringPluralRuleType
+          # 접근자는 묶음마다 하나이고 Int 를 받는다.
+          grep -q "func items(_ arg1: Int)" Resources/L10n.swift
+          if grep -qE "itemsOne|itemsOther" Resources/L10n.swift; then
+            echo "::error::복수형이 접근자 두 개로 나왔습니다"; exit 1
+          fi
+          swiftc -parse-as-library -typecheck Resources/L10n.swift
+
+          rm -rf Resources
+          STRINGSMITH_LANG=en "$ss" generate >/dev/null
           # 세는 변수는 %d 여야 한다 — %@ 면 iOS 가 범주를 고를 수 없다.
           grep -q "<string>%d items</string>" Resources/en.lproj/Localizable.stringsdict
           grep -q "<string>d</string>" Resources/en.lproj/Localizable.stringsdict

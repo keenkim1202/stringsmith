@@ -305,3 +305,86 @@ struct OutputFormatTests {
         #expect(OutputFormat.detect(in: ["swift"]) == nil)
     }
 }
+
+// MARK: - 세 산출물이 같은 말을 하는가
+
+@Suite("복수형 — 형식 간 일관성")
+struct PluralConsistencyTests {
+
+    var table: LocalizationTable {
+        LocalizationTable(
+            sourceLocale: "ko",
+            entries: [
+                LocalizationEntry(key: "cart.title", values: ["ko": "장바구니", "en": "Cart"], sourceRow: 2),
+                LocalizationEntry(key: "cart.items.one", values: ["en": "%d item"], sourceRow: 3),
+                LocalizationEntry(
+                    key: "cart.items.other", values: ["ko": "상품 %d개", "en": "%d items"],
+                    sourceRow: 4),
+            ])
+    }
+
+    var groups: [PluralGroup] { Plurals.split(table).groups }
+
+    /// 평평한 키 두 개로 넣으면 Xcode 가 서로 다른 문자열로 본다.
+    @Test("String Catalog 는 variations.plural 로 담는다")
+    func catalogUsesVariations() throws {
+        let document = XCStringsDocument(table: table, plurals: groups)
+
+        #expect(document.strings["cart.items"] != nil)
+        // 접미사 붙은 키가 따로 남으면 같은 문구가 두 군데에 생긴다.
+        #expect(document.strings["cart.items.one"] == nil)
+        #expect(document.strings["cart.items.other"] == nil)
+
+        let english = try #require(document.strings["cart.items"]?.localizations?["en"])
+        #expect(english.stringUnit == nil)
+        #expect(english.variations?.plural["one"]?.stringUnit?.value == "%d item")
+        #expect(english.variations?.plural["other"]?.stringUnit?.value == "%d items")
+
+        // 한국어는 other 뿐이다.
+        let korean = try #require(document.strings["cart.items"]?.localizations?["ko"])
+        #expect(korean.variations?.plural.keys.sorted() == ["other"])
+    }
+
+    /// `itemsOne` 과 `itemsOther` 를 따로 내면 부르는 쪽이 수에 따라 골라야 한다.
+    /// 그건 iOS 가 할 일이다.
+    @Test("접근자는 묶음마다 하나다")
+    func oneAccessorPerGroup() {
+        let result = SwiftCodegen(options: .init(), tableName: "Localizable")
+            .generate(table: table, plurals: groups)
+
+        #expect(result.accessors.map(\.key).sorted() == ["cart.items", "cart.title"])
+        #expect(result.source.contains("itemsOne") == false)
+        #expect(result.source.contains("itemsOther") == false)
+    }
+
+    /// `%d` 자리에 String 을 넘기면 컴파일은 되고 화면에 쓰레기가 찍힌다.
+    @Test("세는 인자는 Int 로 나온다")
+    func countIsAnInteger() {
+        let result = SwiftCodegen(options: .init(), tableName: "Localizable")
+            .generate(table: table, plurals: groups)
+        #expect(result.source.contains("func items(_ arg1: Int) -> String"))
+    }
+
+    /// 원문 칸이 빈 행만 보면 인자가 0 개로 잡혀 `%d item` 이 그대로 화면에 나갔다.
+    @Test("원문이 비어도 인자 개수를 센다")
+    func countsArgumentsWithoutASource() {
+        let orphan = LocalizationTable(
+            sourceLocale: "ko",
+            entries: [LocalizationEntry(key: "a.one", values: ["en": "%d item"], sourceRow: 2)])
+        let result = SwiftCodegen(options: .init(), tableName: "Localizable")
+            .generate(table: orphan)
+
+        #expect(result.source.contains("static var one: String") == false)
+        #expect(result.source.contains("func one(_ arg1: Int) -> String"))
+    }
+
+    @Test("지정자에 맞는 Swift 타입을 고른다")
+    func mapsConversionsToTypes() {
+        #expect(SwiftCodegen.argumentTypes(in: "%@") == ["String"])
+        #expect(SwiftCodegen.argumentTypes(in: "%d") == ["Int"])
+        #expect(SwiftCodegen.argumentTypes(in: "%f") == ["Double"])
+        // 위치 번호가 있으면 그 자리에 맞춘다.
+        #expect(SwiftCodegen.argumentTypes(in: "%2$d개 %1$@") == ["String", "Int"])
+        #expect(SwiftCodegen.argumentTypes(in: "글자만") == [])
+    }
+}

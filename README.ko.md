@@ -225,6 +225,11 @@ cart.items.other   {count} items
 유일한 예외입니다 — `NSStringPluralRuleType` 은 수를 봐야 범주를 고를 수 있습니다. 시트에서
 다른 이름을 쓴다면 `output.pluralVariable` 로 바꿉니다.
 
+두 형식 모두 복수형을 제대로 담습니다. String Catalog 는 `variations.plural` 로, 레거시
+형식은 `.stringsdict` 로 나갑니다. 어느 쪽이든 생성되는 접근자는 **`Int` 를 받는 함수
+하나**입니다 — `Cart.items(3)` 이지 부르는 쪽이 골라야 하는 `itemsOne`/`itemsOther` 가
+아닙니다. 어느 형태를 쓸지는 iOS 가 정할 일입니다.
+
 `validate` 는 범주를 그 언어와 대조합니다. `other` 는 반드시 있어야 하고(CLDR 요구), 그 언어가
 쓰지 않는 형태와 필요한데 없는 형태를 짚습니다. 내장 표에 없는 언어는 추측하지 않고 넘어갑니다.
 
@@ -444,6 +449,18 @@ ss drift              # 또는: ss drift path/to/Sources
 | `placeholders.syntax` | `apple` · `brace` · `xml` |
 | `placeholders.positional` | `auto` (2개 이상일 때만 위치 지정자) · `always` · `never` |
 | `placeholders.braceOpen` / `braceClose` / `escape` | 구분자, 기본 `{` `}` `\` |
+
+## 환경 변수
+
+| 변수 | 효과 |
+|---|---|
+| `STRINGSMITH_LANG` | `en` 또는 `ko`. 없으면 시스템 언어를 따릅니다 |
+| `STRINGSMITH_GOOGLE_CLIENT_ID` / `_SECRET` | OAuth 클라이언트 파일보다 우선합니다 |
+| `NO_COLOR` | 색을 끕니다 ([no-color.org](https://no-color.org)) |
+| `FORCE_COLOR` · `CLICOLOR_FORCE` | 파이프로 내보낼 때도 색을 켭니다 (CI 로그용) |
+
+출력이 터미널이 아니면 색은 기본적으로 꺼집니다. `ss generate > log.txt` 나
+`ss generate | grep` 결과가 읽히도록 하기 위해서입니다. `NO_COLOR` 가 `FORCE_COLOR` 를 이깁니다.
 
 ## 설계상의 선택
 

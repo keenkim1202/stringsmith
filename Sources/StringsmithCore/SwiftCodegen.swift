@@ -81,17 +81,43 @@ public struct SwiftCodegen: Sendable {
 
     // MARK: - 생성
 
-    public func generate(table: LocalizationTable) -> Result {
+    public func generate(table: LocalizationTable, plurals: [PluralGroup] = []) -> Result {
         var collisions: [Collision] = []
         var accessors: [Accessor] = []
-        let members = table.entries.map { entry in
+
+        // 복수형으로 묶인 행은 개별 접근자를 만들지 않는다. `itemsOne` 과 `itemsOther` 를
+        // 따로 내면 부르는 쪽이 수에 따라 직접 골라야 하는데, 그건 iOS 가 할 일이다.
+        var absorbed = Set<String>()
+        for group in plurals {
+            for entry in group.variants.values { absorbed.insert(entry.key) }
+        }
+
+        var members = table.entries.filter { !absorbed.contains($0.key) }.map { entry in
             Member(
                 entry: entry,
                 namespace: namespaceName(for: entry),
                 identifier: Self.lowerCamel(memberBase(for: entry)),
-                argumentCount: Self.argumentCount(in: entry.values[table.sourceLocale] ?? "")
+                argumentTypes: Self.argumentTypes(in: Self.reference(for: entry, in: table))
             )
         }
+
+        for group in plurals {
+            // 묶음을 대표하는 행 하나. 접미사를 뗀 키로 갈아 끼운다.
+            guard let anchor = group.variants[.other] ?? group.variants.sorted(by: {
+                $0.key < $1.key
+            }).first?.value else { continue }
+            var entry = anchor
+            entry.key = group.key
+
+            members.append(
+                Member(
+                    entry: entry,
+                    namespace: namespaceName(for: entry),
+                    identifier: Self.lowerCamel(memberBase(for: entry)),
+                    argumentTypes: Self.argumentTypes(in: Self.reference(for: entry, in: table))
+                ))
+        }
+        members.sort { $0.entry.key < $1.entry.key }
 
         // 네임스페이스별로 묶고, 같은 이름이 겹치면 결정적으로 구분한다.
         var grouped: [String: [Member]] = [:]
@@ -148,7 +174,9 @@ public struct SwiftCodegen: Sendable {
         var entry: LocalizationEntry
         var namespace: String
         var identifier: String
-        var argumentCount: Int
+        var argumentTypes: [String]
+
+        var argumentCount: Int { argumentTypes.count }
     }
 
     private func render(_ member: Member, table: LocalizationTable, indent: String) -> String {
@@ -168,8 +196,8 @@ public struct SwiftCodegen: Sendable {
             out += "\(indent)}\n"
         } else {
             // 변수 자리는 항상 String 이다 (Placeholder.swift 참고).
-            let params = (1...member.argumentCount)
-                .map { "_ arg\($0): String" }
+            let params = member.argumentTypes.enumerated()
+                .map { "_ arg\($0.offset + 1): \($0.element)" }
                 .joined(separator: ", ")
             let args = (1...member.argumentCount).map { "arg\($0)" }.joined(separator: ", ")
             out += "\(indent)\(options.accessLevel) static func \(name)(\(params)) -> String {\n"
@@ -304,11 +332,41 @@ public struct SwiftCodegen: Sendable {
 
     /// 원문에 들어 있는 포맷 지정자 개수. 위치 지정자가 있으면 최대 번호를 쓴다.
     static func argumentCount(in value: String) -> Int {
+        argumentTypes(in: value).count
+    }
+
+    /// 자리마다의 Swift 타입.
+    ///
+    /// 거의 전부 `String` 이다. 예외는 복수형에서 세는 변수로, `%d` 로 나가므로 `Int` 여야
+    /// 한다 — `String` 을 넘기면 `CVarArg` 로는 통과하지만 화면에 쓰레기가 찍힌다.
+    static func argumentTypes(in value: String) -> [String] {
         let parser = PlaceholderParser(config: PlaceholderConfig(syntax: ["apple"]))
         let placeholders = parser.parse(value).0.placeholders
-        guard !placeholders.isEmpty else { return 0 }
-        let explicit = placeholders.compactMap(\.explicitPosition).max()
-        return explicit ?? placeholders.count
+        guard !placeholders.isEmpty else { return [] }
+
+        let count = placeholders.compactMap(\.explicitPosition).max() ?? placeholders.count
+        var types = [String](repeating: "String", count: count)
+        for (index, placeholder) in placeholders.enumerated() {
+            let position = (placeholder.explicitPosition ?? index + 1) - 1
+            guard position >= 0, position < count else { continue }
+            // %d·%u 계열은 정수, %f 계열은 실수. 나머지는 String 이다.
+            switch placeholder.conversion {
+            case "d", "D", "i", "u", "U": types[position] = "Int"
+            case "f", "F", "e", "E", "g", "G": types[position] = "Double"
+            default: break
+            }
+        }
+        return types
+    }
+
+    /// 인자 개수를 셀 기준 값.
+    ///
+    /// 보통은 원문이다. 복수형에서 **원문 언어가 쓰지 않는 범주**는 원문 칸이 비는데, 그때
+    /// 원문만 보면 인자가 0 개로 잡혀 `%@` 가 그대로 화면에 찍힌다. 값이 있는 아무 로케일이나
+    /// 대신 본다 — 어차피 자리 수는 언어마다 같아야 하고, 다르면 검증이 먼저 잡는다.
+    static func reference(for entry: LocalizationEntry, in table: LocalizationTable) -> String {
+        if let source = entry.values[table.sourceLocale], !source.isEmpty { return source }
+        return entry.values.sorted { $0.key < $1.key }.first { !$0.value.isEmpty }?.value ?? ""
     }
 
     static let keywords: Set<String> = [

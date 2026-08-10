@@ -13,6 +13,11 @@ public struct Placeholder: Sendable, Equatable {
     public var explicitPosition: Int?
     /// 값 안에서 발견된 순서 (0-based). 이름 없는 지정자를 구분하는 데 쓴다.
     public var ordinal: Int
+    /// 시트에 이미 `%d` 처럼 적혀 있었으면 그 변환 문자. `{name}` 표기는 `nil`.
+    ///
+    /// 생성 코드가 인자 타입을 정할 때 본다 — `%d` 자리에 `String` 을 넘기면 컴파일은 되고
+    /// 화면에 쓰레기가 찍힌다.
+    public var conversion: Character?
 
     /// 로케일 간 대응을 잡는 키.
     ///
@@ -178,11 +183,13 @@ public struct PlaceholderParser: Sendable {
                     switch match.kind {
                     case .literalPercent:
                         text.append("%")
-                    case let .specifier(position):
+                    case let .specifier(position, conversion):
                         flushText()
                         segments.append(
                             .placeholder(
-                                Placeholder(name: nil, explicitPosition: position, ordinal: ordinal)
+                                Placeholder(
+                                    name: nil, explicitPosition: position, ordinal: ordinal,
+                                    conversion: conversion)
                             ))
                         ordinal += 1
                     }
@@ -235,7 +242,7 @@ public struct PlaceholderParser: Sendable {
 
     enum AppleMatchKind {
         case literalPercent
-        case specifier(position: Int?)
+        case specifier(position: Int?, conversion: Character)
     }
 
     /// `% [n$] [flags][width][.precision][length] conversion` 을 인식한다.
@@ -278,7 +285,7 @@ public struct PlaceholderParser: Sendable {
         // 8진수(o·O)·포인터(p)·16진 부동소수(a·A)는 인식하지 않는다.
         // 사용자 노출 문자열에 쓰일 일이 없는 반면 "50%off" 같은 평범한 텍스트를 오인할 위험만 크다.
         guard i < chars.count, "@dDuUxXfFeEgGcCsS".contains(chars[i]) else { return nil }
-        return (.specifier(position: position), i + 1)
+        return (.specifier(position: position, conversion: chars[i]), i + 1)
     }
 
     // MARK: 중괄호 표기

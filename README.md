@@ -229,6 +229,11 @@ The **count variable renders as `%d`, not `%@`**, which is the one exception to 
 everything-is-a-string rule. `NSStringPluralRuleType` has to see a number to pick a category.
 Rename it with `output.pluralVariable` if your sheet calls it something else.
 
+Both formats carry plurals properly: a String Catalog gets `variations.plural`, and the legacy
+format gets a `.stringsdict`. Either way the generated accessor is **one function taking an
+`Int`** — `Cart.items(3)`, not a pair of `itemsOne` / `itemsOther` for the caller to choose
+between. Picking the right form is iOS's job.
+
 `validate` checks the categories against the locale: `other` must exist (CLDR requires it), a
 form the language never uses is reported, and so is one it needs but the sheet lacks. Languages
 outside the built-in table are left alone rather than guessed at.
@@ -458,6 +463,18 @@ Paths are relative to the config file, so it works from anywhere in the repo.
 | `placeholders.syntax` | `apple` · `brace` · `xml` |
 | `placeholders.positional` | `auto` (positional only when 2+) · `always` · `never` |
 | `placeholders.braceOpen` / `braceClose` / `escape` | Delimiters, default `{` `}` `\` |
+
+## Environment
+
+| Variable | Effect |
+|---|---|
+| `STRINGSMITH_LANG` | `en` or `ko`. Otherwise the CLI follows the system language |
+| `STRINGSMITH_GOOGLE_CLIENT_ID` / `_SECRET` | Override the OAuth client file |
+| `NO_COLOR` | Turn colour off ([no-color.org](https://no-color.org)) |
+| `FORCE_COLOR` · `CLICOLOR_FORCE` | Keep colour when piping, e.g. for CI logs |
+
+Colour is off by default when the output is not a terminal, so `ss generate > log.txt` and
+`ss generate | grep` stay readable. `NO_COLOR` wins over `FORCE_COLOR`.
 
 ## Design notes
 

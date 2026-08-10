@@ -270,7 +270,9 @@ public struct Pipeline: Sendable {
                 options: configuration.output.swift,
                 tableName: configuration.output.tableName
             )
-            for collision in codegen.generate(table: table).collisions {
+            // 복수형은 접근자 하나로 합쳐지므로 충돌 판단도 그 기준이어야 한다.
+            let pluralGroups = Plurals.split(table).groups
+            for collision in codegen.generate(table: table, plurals: pluralGroups).collisions {
                 warnings.append(
                     Warning(
                         kind: .collision,
@@ -359,6 +361,14 @@ public struct Pipeline: Sendable {
             }
         }
 
+        // 복수형은 세는 변수를 정수로 다시 그린다. `NSStringPluralRuleType` 도, String
+        // Catalog 의 `variations.plural` 도 수를 봐야 범주를 고를 수 있다.
+        var pluralConfig = configuration.placeholders
+        pluralConfig.numeric = [configuration.output.pluralVariable]
+        let counted = PlaceholderProcessor(config: pluralConfig).process(checked.raw).table
+        let pluralGroups = Plurals.split(counted).groups
+        let flatEntries = Plurals.split(table).singles
+
         for artifact in artifacts {
             switch artifact {
             case "swift":
@@ -366,7 +376,7 @@ public struct Pipeline: Sendable {
                     options: configuration.output.swift,
                     tableName: configuration.output.tableName
                 )
-                let result = codegen.generate(table: table)
+                let result = codegen.generate(table: table, plurals: pluralGroups)
                 // 충돌 경고는 validate 가 이미 넣었다. 여기서 또 넣으면 두 번 나온다.
                 let path = resolve(
                     configuration.output.path + "/" + configuration.output.swift.enumName + ".swift"
@@ -388,7 +398,8 @@ public struct Pipeline: Sendable {
                 let path = resolve(
                     configuration.output.path + "/" + configuration.output.tableName + ".xcstrings"
                 )
-                let document = XCStringsDocument(table: table)
+                // 복수형은 평평한 키 두 개가 아니라 variations.plural 로 들어가야 한다.
+                let document = XCStringsDocument(table: table, plurals: pluralGroups)
                 if dryRun {
                     let data = try XCStringsWriter.data(for: document)
                     if FileManager.default.contents(atPath: path) == data {
@@ -407,23 +418,16 @@ public struct Pipeline: Sendable {
                 //
                 // 복수형만 원본에서 다시 그린다. `NSStringPluralRuleType` 은 수를 봐야 어느
                 // 범주인지 고를 수 있어서, 세는 변수가 `%@` 면 iOS 가 판단할 수 없다.
-                var pluralConfig = configuration.placeholders
-                pluralConfig.numeric = [configuration.output.pluralVariable]
-                let counted = PlaceholderProcessor(config: pluralConfig).process(checked.raw)
-                let split = (
-                    groups: Plurals.split(counted.table).groups,
-                    singles: Plurals.split(table).singles
-                )
                 for locale in table.locales {
                     let directory = configuration.output.path + "/\(locale).lproj"
                     let name = configuration.output.tableName
 
                     if artifact == "strings" {
                         let path = resolve(directory + "/\(name).strings")
-                        let text = LegacyOutput.strings(for: locale, entries: split.singles)
+                        let text = LegacyOutput.strings(for: locale, entries: flatEntries)
                         try record(Data(text.utf8), at: path)
                     } else if let text = LegacyOutput.stringsdict(
-                        for: locale, groups: split.groups)
+                        for: locale, groups: pluralGroups)
                     {
                         let path = resolve(directory + "/\(name).stringsdict")
                         try record(Data(text.utf8), at: path)
