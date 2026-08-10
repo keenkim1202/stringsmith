@@ -155,6 +155,33 @@ jobs:
           # 편집이 표 중간에 끼어들어 뒷부분이 머리글 없는 조각으로 떨어진 적이 있다.
           python3 Scripts/check-tables.py README.md README.ko.md
 
+      # 형식은 택일이다. 바꾸면 이전 형식이 남으면 안 된다.
+      - name: Output format switch
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          cd "$work"
+          printf 'key,ko,en\ncart.title,장바구니,Cart\n' > strings.csv
+          ss="$GITHUB_WORKSPACE/.build/debug/stringsmith"
+
+          STRINGSMITH_LANG=en "$ss" init --format strings >/dev/null
+          STRINGSMITH_LANG=en "$ss" generate >/dev/null
+          test -f Resources/en.lproj/Localizable.strings
+          test ! -f Resources/Localizable.xcstrings
+          # 형식과 무관한 swift 는 유지돼야 한다.
+          test -f Resources/L10n.swift
+
+          # 이번 실행만 다른 형식으로.
+          rm -rf Resources
+          STRINGSMITH_LANG=en "$ss" generate --format xcstrings >/dev/null
+          test -f Resources/Localizable.xcstrings
+          test ! -f Resources/en.lproj/Localizable.strings
+          test -f Resources/L10n.swift
+
+          if STRINGSMITH_LANG=en "$ss" generate --format json >/dev/null 2>&1; then
+            echo "::error::모르는 형식을 통과시켰습니다"; exit 1
+          fi
+
       # 복수형은 Apple 도구가 읽을 수 있는 plist 여야 하고, 세는 변수가 정수여야 한다.
       - name: Plurals and legacy output
         run: |

@@ -266,3 +266,42 @@ struct SourcelessConversionTests {
         #expect(result.table.entries[0].values["ko"] == "%1$@님 %2$d개")
     }
 }
+
+// MARK: - 형식 고르기
+
+@Suite("출력 형식")
+struct OutputFormatTests {
+
+    @Test("형식이 만들 산출물을 정한다")
+    func mapsToArtifacts() {
+        #expect(OutputFormat.xcstrings.artifacts == ["xcstrings"])
+        // 둘은 한 쌍이라 따로 고를 일이 없다.
+        #expect(OutputFormat.strings.artifacts == ["strings", "stringsdict"])
+    }
+
+    /// 어느 형식을 쓰든 타입 안전 접근자는 필요하다. 형식을 바꾼다고 꺼지면 안 된다.
+    @Test("형식과 무관한 산출물은 그대로 둔다")
+    func keepsUnrelatedArtifacts() {
+        #expect(
+            OutputFormat.strings.applied(to: ["xcstrings", "swift"])
+                == ["strings", "stringsdict", "swift"])
+        #expect(
+            OutputFormat.xcstrings.applied(to: ["strings", "stringsdict", "swift"])
+                == ["xcstrings", "swift"])
+    }
+
+    @Test("형식만 바꾸면 다른 형식은 남지 않는다")
+    func replacesRatherThanAdds() {
+        let out = OutputFormat.xcstrings.applied(to: ["strings", "stringsdict"])
+        // 두 형식이 같이 남으면 어느 쪽이 읽히는지 알 수 없게 된다.
+        #expect(out.contains("strings") == false)
+        #expect(out.contains("stringsdict") == false)
+    }
+
+    @Test("설정에서 형식을 되읽는다")
+    func detectsFromArtifacts() {
+        #expect(OutputFormat.detect(in: ["xcstrings", "swift"]) == .xcstrings)
+        #expect(OutputFormat.detect(in: ["strings", "stringsdict"]) == .strings)
+        #expect(OutputFormat.detect(in: ["swift"]) == nil)
+    }
+}

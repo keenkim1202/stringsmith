@@ -150,6 +150,24 @@ export STRINGSMITH_GOOGLE_CLIENT_SECRET=…
 > The secret it issues is required — Google rejects the token exchange without it, even with
 > PKCE. Keep the file to yourself; `chmod 600` it.
 
+## Choosing a format
+
+Pick one — the two are alternatives, not a pair:
+
+```bash
+ss init --format strings      # write it into the config
+ss generate --format strings  # or just for this run
+```
+
+| Format | Produces |
+|---|---|
+| `xcstrings` (default) | `Localizable.xcstrings` — one file, all languages |
+| `strings` | `<locale>.lproj/Localizable.strings`, plus `.stringsdict` where there are plurals |
+
+`--format` changes only the localization files. `swift` stays on if the config has it, since the
+type-safe accessors are useful either way. Switching formats replaces the old one rather than
+adding to it: keeping both means never being sure which one the app actually reads.
+
 ## Sheet format
 
 | key | screen | description | ko | en |
@@ -287,6 +305,7 @@ locale on its own. `.stringsmith.json` is found by walking up from the current d
 
 | Option | Command | Meaning |
 |---|---|---|
+| `--format` | init, generate | `xcstrings` · `strings` |
 | `--url` | init | Google Sheets share URL |
 | `-o` `--output` | init | Output directory (default `Resources`) |
 | `-r` `--header-row` | init | Header row number, 1-based |

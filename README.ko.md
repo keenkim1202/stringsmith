@@ -148,6 +148,24 @@ export STRINGSMITH_GOOGLE_CLIENT_SECRET=…
 > 그것뿐입니다. 함께 발급되는 비밀값도 **반드시 필요합니다** — PKCE 를 써도 Google 이 비밀값
 > 없이는 토큰 교환을 거부합니다. 파일은 본인만 보도록 `chmod 600` 해 두세요.
 
+## 형식 고르기
+
+둘 중 하나를 씁니다 — 같이 쓰는 게 아니라 택일입니다:
+
+```bash
+ss init --format strings      # 설정에 적어 둡니다
+ss generate --format strings  # 또는 이번 실행만
+```
+
+| 형식 | 만들어지는 것 |
+|---|---|
+| `xcstrings` (기본) | `Localizable.xcstrings` — 파일 하나에 모든 언어 |
+| `strings` | `<locale>.lproj/Localizable.strings`, 복수형이 있으면 `.stringsdict` |
+
+`--format` 은 로컬라이제이션 파일만 바꿉니다. `swift` 는 설정에 있으면 그대로 유지됩니다 —
+어느 형식을 쓰든 타입 안전 접근자는 필요하니까요. 형식을 바꾸면 이전 것을 **대체**합니다.
+둘 다 두면 앱이 실제로 어느 쪽을 읽는지 확신할 수 없게 됩니다.
+
 ## 시트 형태
 
 | 키 | 화면 | 설명 | 한국어 | 영어 |
@@ -276,6 +294,7 @@ ss preview            # 확인 앱에서 열기
 
 | 옵션 | 명령 | 뜻 |
 |---|---|---|
+| `--format` | init·generate | `xcstrings` · `strings` |
 | `--url` | init | Google Sheets 공유 URL |
 | `-o` `--output` | init | 산출물 디렉터리 (기본 `Resources`) |
 | `-r` `--header-row` | init | 헤더 행 번호 (1부터) |

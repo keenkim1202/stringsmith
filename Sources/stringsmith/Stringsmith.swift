@@ -96,6 +96,14 @@ extension Stringsmith {
         )
         var artifacts: [String] = ["xcstrings", "swift"]
 
+        @Option(
+            name: [.long],
+            help: .init(stringLiteral: tr(
+                "Localization file format: xcstrings (default) or strings.",
+                "로컬라이제이션 파일 형식: xcstrings(기본) 또는 strings."))
+        )
+        var format: String?
+
         @Flag(name: [.short, .long], help: .init(stringLiteral: tr(
             "Overwrite an existing config.", "기존 설정 파일을 덮어씁니다.")))
         var force: Bool = false
@@ -174,7 +182,7 @@ extension Stringsmith {
                 source: source,
                 columns: mapping,
                 output: OutputConfig(
-                    artifacts: artifacts,
+                    artifacts: try Stringsmith.resolveArtifacts(artifacts, format: format),
                     path: PathUtil.relative(from: configDirectory, to: output)
                 )
             )
@@ -345,15 +353,30 @@ extension Stringsmith {
         )
         var only: [String] = []
 
+        @Option(
+            name: [.long],
+            help: .init(stringLiteral: tr(
+                "Build this format instead of the one in the config: xcstrings · strings.",
+                "설정 대신 이 형식으로 만듭니다: xcstrings · strings."))
+        )
+        var format: String?
+
         func run() throws {
             Stringsmith.configureBuffering()
             let config = try Stringsmith.resolveConfigPath(self.config)
             let configuration = try Configuration.load(from: config)
             let base = (config as NSString).deletingLastPathComponent
+            // --format 은 형식만 바꾸고 swift 같은 나머지는 설정을 따른다.
+            // --only 는 더 낮은 수준의 손잡이라 주어지면 그쪽이 이긴다.
+            var artifacts = only.isEmpty ? nil : only
+            if let format {
+                artifacts = try Stringsmith.outputFormat(format)
+                    .applied(to: artifacts ?? configuration.output.artifacts)
+            }
             let pipeline = Pipeline(
                 configuration: configuration,
                 baseDirectory: base.isEmpty ? FileManager.default.currentDirectoryPath : base,
-                only: only.isEmpty ? nil : only
+                only: artifacts
             )
 
             let result = try pipeline.build(dryRun: dryRun)
@@ -583,5 +606,29 @@ extension CLIError: LocalizedError {
 private extension String {
     func padded(to width: Int) -> String {
         count >= width ? self : self + String(repeating: " ", count: width - count)
+    }
+}
+
+// MARK: - 형식 고르기
+
+extension Stringsmith {
+
+    /// `--format` 값을 해석한다. 틀린 값은 무엇이 가능한지 알려 준다.
+    static func outputFormat(_ value: String) throws -> OutputFormat {
+        guard let format = OutputFormat(rawValue: value.lowercased()) else {
+            let known = OutputFormat.allCases.map(\.rawValue).joined(separator: " · ")
+            // 설정 파일 오류가 아니라 인자 오류다. 머리말이 다르면 엉뚱한 곳을 보게 된다.
+            throw ValidationError(
+                tr(
+                    "Unknown format \"\(value)\". Choose one of: \(known)",
+                    "알 수 없는 형식 \"\(value)\". 다음 중 하나여야 합니다: \(known)"))
+        }
+        return format
+    }
+
+    /// `init` 이 설정에 적을 산출물.
+    static func resolveArtifacts(_ artifacts: [String], format: String?) throws -> [String] {
+        guard let format else { return artifacts }
+        return try outputFormat(format).applied(to: artifacts)
     }
 }
