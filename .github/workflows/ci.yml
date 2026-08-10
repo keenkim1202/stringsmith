@@ -172,13 +172,15 @@ jobs:
           (cd "$work" && STRINGSMITH_LANG=en "$ss" validate)
 
           # 편집이 표 중간에 끼어들어 뒷부분이 머리글 없는 조각으로 떨어진 적이 있다.
-          python3 Scripts/check-tables.py README.md README.ko.md CHANGELOG.md CHANGELOG.ko.md
+          python3 Scripts/check-tables.py README.md README.ko.md CHANGELOG.md CHANGELOG.ko.md \
+            docs/configuration.md docs/configuration.ko.md
 
           # 문서가 가리키는 파일이 실재하는가.
           python3 - <<'PY'
           import os, re, sys
           missing = []
           for doc in ['README.md', 'README.ko.md', 'CHANGELOG.md', 'CHANGELOG.ko.md',
+                      'docs/configuration.md', 'docs/configuration.ko.md',
                       'Examples/DemoApp/README.md']:
               base = os.path.dirname(doc)
               for _, target in re.findall(r'\[([^\]]+)\]\(([^)]+)\)', open(doc).read()):
