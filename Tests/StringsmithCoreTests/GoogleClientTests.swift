@@ -76,3 +76,31 @@ struct GoogleClientTests {
         #expect(GoogleClient.scope == "https://www.googleapis.com/auth/spreadsheets.readonly")
     }
 }
+
+// MARK: - 저장소에 들어 있는 예시 파일
+
+@Suite("예시 클라이언트 파일")
+struct ExampleClientFileTests {
+
+    /// 예시 파일만 보고 온 사람에게도 저장 위치가 보여야 한다. 설명을 넣은 김에,
+    /// 그 설명 때문에 파싱이 깨지지 않는지도 함께 확인한다.
+    @Test("설명 필드가 있어도 값을 읽어 낸다")
+    func parsesDespiteTheNotes() throws {
+        let example = """
+            {
+              "_where": "Copy this to ~/.config/stringsmith/client.json …",
+              "_how": "Google Cloud Console → Credentials → …",
+              "client_id": "000000000000-xxxx.apps.googleusercontent.com",
+              "client_secret": "your-client-secret-here"
+            }
+            """
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + ".json").path
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        try Data(example.utf8).write(to: URL(fileURLWithPath: path))
+
+        let stored = GoogleClient.load(path: path)
+        #expect(stored?.clientId == "000000000000-xxxx.apps.googleusercontent.com")
+        #expect(stored?.clientSecret == "your-client-secret-here")
+    }
+}

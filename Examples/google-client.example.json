@@ -1,4 +1,6 @@
 {
+  "_where": "Copy this to ~/.config/stringsmith/client.json and fill in your own values.",
+  "_how": "Google Cloud Console → Credentials → OAuth client ID → Desktop app. The JSON you download there also works as-is, wrapper and all. See the README, or run `ss auth login` for the steps.",
   "client_id": "000000000000-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com",
   "client_secret": "your-client-secret-here"
 }
