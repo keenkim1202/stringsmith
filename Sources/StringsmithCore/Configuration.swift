@@ -44,6 +44,11 @@ public struct SourceConfig: Codable, Sendable, Equatable {
     public var url: String?
     /// 탭 식별자. URL 에 `gid=` 가 있으면 생략해도 된다.
     public var gid: String?
+    /// 여러 탭을 이어 붙일 때 쓸 탭 목록. gid 또는 탭 이름.
+    ///
+    /// 화면·도메인별로 탭을 나눠 둔 시트가 흔하다. 비워 두면 `gid` 하나만 읽는다.
+    /// 공개 링크로 읽을 때는 **gid 만** 쓸 수 있다 — 이름을 gid 로 바꾸려면 API 가 필요하다.
+    public var tabs: [String]?
     /// 헤더가 있는 행 번호(1-based). 시트 위쪽에 제목·안내 행이 있는 경우가 많다.
     public var headerRow: Int
     /// 원문 로케일. `.xcstrings`의 sourceLanguage가 된다.
@@ -54,6 +59,7 @@ public struct SourceConfig: Codable, Sendable, Equatable {
         path: String = "",
         url: String? = nil,
         gid: String? = nil,
+        tabs: [String]? = nil,
         headerRow: Int = 1,
         defaultLocale: String
     ) {
@@ -61,6 +67,7 @@ public struct SourceConfig: Codable, Sendable, Equatable {
         self.path = path
         self.url = url
         self.gid = gid
+        self.tabs = tabs
         self.headerRow = headerRow
         self.defaultLocale = defaultLocale
     }
@@ -71,6 +78,7 @@ public struct SourceConfig: Codable, Sendable, Equatable {
         path = try c.decodeIfPresent(String.self, forKey: .path) ?? ""
         url = try c.decodeIfPresent(String.self, forKey: .url)
         gid = try c.decodeIfPresent(String.self, forKey: .gid)
+        tabs = try c.decodeIfPresent([String].self, forKey: .tabs)
         headerRow = try c.decodeIfPresent(Int.self, forKey: .headerRow) ?? 1
         defaultLocale = try c.decode(String.self, forKey: .defaultLocale)
     }

@@ -70,6 +70,25 @@ selects the tab; add `"gid"` to the config to override it.
 The last successful response is cached under `.stringsmith/cache/`. If the network is unreachable,
 the cached copy is used and a warning is printed — a build should not stop because you are offline.
 
+### Several tabs
+
+Sheets split by screen or domain can be joined into one table:
+
+```json
+{ "source": { "tabs": ["common", "checkout", "settings"] } }
+```
+
+Tabs are read in the order listed and stacked top to bottom. The header row is taken from the
+first tab and the others must match it — joining mismatched columns would quietly shift values
+into the wrong ones, so it stops instead. Empty tabs are skipped; a tab nobody has filled in yet
+is normal.
+
+Tab names only work when signed in, since resolving a name to a tab takes the API. Without a
+sign-in, list `gid` values instead.
+
+> Row numbers in errors count from the joined table, not from the tab a row came from. Row 102 of
+> a join may be row 2 of the second tab.
+
 ### Private sheets
 
 A sheet that is not shared publicly needs a sign-in:

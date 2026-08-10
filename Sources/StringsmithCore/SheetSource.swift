@@ -100,6 +100,10 @@ public func downloadSheet(_ url: URL) throws -> SheetResponse {
 public struct GoogleSheetsSource: SheetSource {
     public let url: String
     public let gid: String?
+    /// 이어 붙일 탭 목록. 비어 있으면 `gid` 하나만 읽는다.
+    public let tabs: [String]
+    /// 헤더 행 번호(1-based). 탭을 이어 붙일 때 헤더를 맞춰 보고 건너뛰는 데 쓴다.
+    public let headerRow: Int
     /// 마지막으로 받은 내용을 둘 파일. 네트워크가 안 되면 이걸 쓴다.
     public let cachePath: String?
     let fetch: SheetFetch
@@ -110,6 +114,8 @@ public struct GoogleSheetsSource: SheetSource {
     public init(
         url: String,
         gid: String? = nil,
+        tabs: [String] = [],
+        headerRow: Int = 1,
         cachePath: String? = nil,
         tokens: TokenStore? = nil,
         fetch: @escaping SheetFetch = downloadSheet,
@@ -117,6 +123,8 @@ public struct GoogleSheetsSource: SheetSource {
     ) {
         self.url = url
         self.gid = gid
+        self.tabs = tabs
+        self.headerRow = headerRow
         self.cachePath = cachePath
         self.tokens = tokens
         self.fetch = fetch
@@ -124,29 +132,89 @@ public struct GoogleSheetsSource: SheetSource {
     }
 
     public func rows() throws -> [[String]] {
-        if let rows = try authorizedRows() { return rows }
-        let text = try download()
-        return CSVParser().parse(text)
+        guard tabs.count > 1 else {
+            return try rows(tab: tabs.first ?? gid)
+        }
+        return try merged()
+    }
+
+    /// 탭 하나를 읽는다. 로그인되어 있으면 API 로, 아니면 공개 링크로.
+    func rows(tab: String?) throws -> [[String]] {
+        if let rows = try authorizedRows(tab: tab) { return rows }
+        return CSVParser().parse(try download(tab: tab))
+    }
+
+    /// 여러 탭을 위에서 아래로 이어 붙인다.
+    ///
+    /// 화면·도메인별로 탭을 나눠 둔 시트가 흔하다. 헤더가 서로 다르면 이어 붙이는 순간
+    /// 열이 어긋나므로, 붙이기 전에 대조해서 다르면 멈춘다 — 조용히 섞이는 것보다 낫다.
+    func merged() throws -> [[String]] {
+        var out: [[String]] = []
+        var header: [String]?
+        var headerTab = ""
+
+        for tab in tabs {
+            let rows = try rows(tab: tab)
+            let headerIndex = headerRow - 1
+            // 빈 탭은 건너뛴다. 아직 안 채운 탭이 섞여 있는 건 흔한 일이다.
+            guard rows.count > headerIndex else { continue }
+
+            guard let first = header else {
+                header = rows[headerIndex]
+                headerTab = tab
+                // 첫 탭은 헤더 위 안내 행까지 통째로 넘긴다 — headerRow 가 그대로 맞아야 한다.
+                out = rows
+                continue
+            }
+            guard normalize(rows[headerIndex]) == normalize(first) else {
+                throw StringsmithError.invalidConfiguration(
+                    path: url,
+                    reason: tr(
+                        """
+                        Tabs have different columns, so they cannot be joined.
+                          "\(headerTab)": \(first.joined(separator: ", "))
+                          "\(tab)": \(rows[headerIndex].joined(separator: ", "))
+                          → Make the header rows match, or list one tab at a time.
+                        """,
+                        """
+                        탭마다 컬럼이 달라 이어 붙일 수 없습니다.
+                          "\(headerTab)": \(first.joined(separator: ", "))
+                          "\(tab)": \(rows[headerIndex].joined(separator: ", "))
+                          → 헤더 행을 맞추거나, 탭을 하나씩 지정하세요.
+                        """))
+            }
+            out += rows[(headerIndex + 1)...]
+        }
+        return out
+    }
+
+    /// 헤더 비교용. 앞뒤 공백과 뒤쪽 빈 칸은 차이로 치지 않는다 —
+    /// 시트에서 뒤쪽 빈 칸은 응답에 아예 실리지 않아 탭마다 길이가 달라진다.
+    func normalize(_ header: [String]) -> [String] {
+        var trimmed = header.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        while trimmed.last?.isEmpty == true { trimmed.removeLast() }
+        return trimmed
     }
 
     /// 로그인되어 있을 때만 API 경로를 탄다. 아니면 nil 을 돌려 공개 링크로 넘긴다.
     ///
     /// 로그인을 강제하지 않는 건 의도한 것이다 — 공개 시트를 쓰는 사람은 지금까지처럼
     /// 아무 설정 없이 계속 쓸 수 있어야 한다.
-    func authorizedRows() throws -> [[String]]? {
+    func authorizedRows(tab: String?) throws -> [[String]]? {
         guard let tokens, (try? tokens.load()) != nil else { return nil }
         guard let ids = GoogleSheetsURL.identifiers(from: url) else { return nil }
 
         let oauth = GoogleOAuth(fetch: authorized)
         let token = try oauth.validAccessToken(store: tokens)
         let api = GoogleSheetsAPI(accessToken: token, fetch: authorized)
-        let rows = try api.rows(spreadsheetID: ids.id, gid: gid ?? ids.gid)
-        saveCache(CSVParser.serialize(rows))
+        let rows = try api.rows(spreadsheetID: ids.id, gid: tab ?? gid ?? ids.gid)
+        // 탭 하나만 읽을 때만 캐시한다. 이어 붙이는 경우는 조각을 남겨 봐야 못 쓴다.
+        if tabs.count <= 1 { saveCache(CSVParser.serialize(rows)) }
         return rows
     }
 
     /// 내려받아 캐시에 저장한다. 실패하면 캐시로 대체한다.
-    func download() throws -> String {
+    func download(tab: String?) throws -> String {
         guard let ids = GoogleSheetsURL.identifiers(from: url) else {
             throw StringsmithError.invalidConfiguration(
                 path: url,
@@ -154,7 +222,21 @@ public struct GoogleSheetsSource: SheetSource {
                     "Not a Google Sheets URL. Expected https://docs.google.com/spreadsheets/d/…",
                     "Google Sheets 주소가 아닙니다. https://docs.google.com/spreadsheets/d/… 형태여야 합니다."))
         }
-        guard let export = GoogleSheetsURL.exportURL(id: ids.id, gid: gid ?? ids.gid) else {
+        // 공개 링크는 gid 로만 탭을 고를 수 있다. 이름을 gid 로 바꾸려면 API 가 필요하다.
+        if let tab, Int(tab) == nil {
+            throw StringsmithError.invalidConfiguration(
+                path: url,
+                reason: tr(
+                    """
+                    Tab "\(tab)" is a name, and names only work when signed in.
+                      → Use its gid, or run: ss auth login
+                    """,
+                    """
+                    탭 "\(tab)" 은 이름인데, 이름은 로그인했을 때만 쓸 수 있습니다.
+                      → gid 를 쓰거나, 실행: ss auth login
+                    """))
+        }
+        guard let export = GoogleSheetsURL.exportURL(id: ids.id, gid: tab ?? gid ?? ids.gid) else {
             throw StringsmithError.invalidConfiguration(
                 path: url, reason: tr("Could not build the export URL.", "내보내기 주소를 만들지 못했습니다."))
         }
@@ -162,7 +244,7 @@ public struct GoogleSheetsSource: SheetSource {
         do {
             let response = try fetch(export)
             let text = try validate(response, export: export)
-            saveCache(text)
+            if tabs.count <= 1 { saveCache(text) }
             return text
         } catch {
             // 네트워크가 끊겼을 때 캐시로 계속 갈 수 있어야 한다. 비행기·사내망에서 빌드가 멈추면 곤란하다.

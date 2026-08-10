@@ -40,24 +40,26 @@ public struct GoogleSheetsAPI: Sendable {
             throw StringsmithError.emptySheet(path: spreadsheetID)
         }
 
-        guard let gid, let wanted = Int(gid) else {
-            return sheets[0].title
+        guard let gid else { return sheets[0].title }
+
+        // 이름을 먼저 본다. URL 에서 온 값은 숫자(gid)지만, 설정에 사람이 적는 건 탭 이름이다.
+        if let byTitle = sheets.first(where: { $0.title == gid }) { return byTitle.title }
+        if let number = Int(gid), let byId = sheets.first(where: { $0.sheetId == number }) {
+            return byId.title
         }
-        guard let match = sheets.first(where: { $0.sheetId == wanted }) else {
-            let names = sheets.map { "\($0.title) (gid=\($0.sheetId))" }.joined(separator: ", ")
-            throw StringsmithError.invalidConfiguration(
-                path: spreadsheetID,
-                reason: tr(
-                    """
-                    No tab with gid=\(gid) in this spreadsheet.
-                      Tabs found: \(names)
-                    """,
-                    """
-                    이 스프레드시트에 gid=\(gid) 인 탭이 없습니다.
-                      있는 탭: \(names)
-                    """))
-        }
-        return match.title
+
+        let names = sheets.map { "\($0.title) (gid=\($0.sheetId))" }.joined(separator: ", ")
+        throw StringsmithError.invalidConfiguration(
+            path: spreadsheetID,
+            reason: tr(
+                """
+                No tab "\(gid)" in this spreadsheet.
+                  Tabs found: \(names)
+                """,
+                """
+                이 스프레드시트에 "\(gid)" 탭이 없습니다.
+                  있는 탭: \(names)
+                """))
     }
 
     func values(spreadsheetID: String, range: String) throws -> [[String]] {
