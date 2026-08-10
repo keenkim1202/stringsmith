@@ -221,7 +221,7 @@ struct PipelineTests {
                 return
             }
             #expect(key == "a")
-            #expect(rows == [2, 3])
+            #expect(rows == ["2", "3"])
         }
     }
 

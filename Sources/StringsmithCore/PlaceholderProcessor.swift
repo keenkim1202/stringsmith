@@ -29,7 +29,7 @@ public struct PlaceholderProcessor: Sendable {
         public var key: String
         public var locale: String?
         public var message: String
-        public var row: Int
+        public var row: String
 
         public var formatted: String {
             let where_ = locale.map { "\(key) [\($0)]" } ?? key
@@ -80,7 +80,7 @@ public struct PlaceholderProcessor: Sendable {
                             이름 없는 변수가 \(unnamed.count)개입니다. 번역에서 어순이 바뀌면 \
                             어느 자리인지 알 수 없습니다. {name} 표기를 권합니다.
                             """),
-                        row: entry.sourceRow
+                        row: entry.sourceLabel
                     ))
             }
 
@@ -91,7 +91,7 @@ public struct PlaceholderProcessor: Sendable {
                 let (parsed, findings) = parser.parse(raw)
                 report(
                     findings: findings, key: entry.key, locale: locale,
-                    row: entry.sourceRow, into: &issues
+                    row: entry.sourceLabel, into: &issues
                 )
 
                 let identities = Set(parsed.placeholders.map(\.identity))
@@ -105,7 +105,7 @@ public struct PlaceholderProcessor: Sendable {
                             message: tr(
                                 "Variables not in the source: \(extra.map { "{\($0)}" }.joined(separator: ", "))",
                                 "원문에 없는 변수가 있습니다: \(extra.map { "{\($0)}" }.joined(separator: ", "))"),
-                            row: entry.sourceRow
+                            row: entry.sourceLabel
                         ))
                     continue
                 }
@@ -119,7 +119,7 @@ public struct PlaceholderProcessor: Sendable {
                             message: tr(
                                 "Missing variables: \(missing.map { "{\($0)}" }.joined(separator: ", "))",
                                 "변수가 누락됐습니다: \(missing.map { "{\($0)}" }.joined(separator: ", "))"),
-                            row: entry.sourceRow
+                            row: entry.sourceLabel
                         ))
                     continue
                 }
@@ -131,7 +131,7 @@ public struct PlaceholderProcessor: Sendable {
                             message: tr(
                                 "Could not map the variables to positions.",
                                 "변수를 위치 번호에 대응시키지 못했습니다."),
-                            row: entry.sourceRow
+                            row: entry.sourceLabel
                         ))
                     continue
                 }
@@ -156,7 +156,7 @@ public struct PlaceholderProcessor: Sendable {
     /// V1d — 변환할 수 없는 표기(인라인 마크업 등)를 경고로 남긴다.
     private func report(
         findings: PlaceholderParser.Findings,
-        key: String, locale: String, row: Int,
+        key: String, locale: String, row: String,
         into issues: inout [Issue]
     ) {
         if !findings.unsupported.isEmpty {

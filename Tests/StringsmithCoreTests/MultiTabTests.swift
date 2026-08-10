@@ -173,3 +173,96 @@ struct MultiTabTests {
         #expect(try source.rows() == [["key", "ko"], ["good", "좋음"], ["bad", "나쁨"]])
     }
 }
+
+// MARK: - 오류가 가리키는 자리
+
+@Suite("이어 붙였을 때의 행 번호")
+struct MergedRowOriginTests {
+
+    /// 이어 붙인 표의 행 번호만 주면 사람이 찾아갈 수 없다. 병합본 5행이 두 번째 탭의
+    /// 2행일 수 있기 때문이다.
+    @Test("각 행이 원래 어느 탭 몇 행이었는지 들고 온다")
+    func carriesTheOriginOfEachRow() throws {
+        let contents = try StubTabs([
+            ("strings", [["key", "ko"], ["a", "가"], ["b", "나"]]),
+            ("errors", [["key", "ko"], ["c", "다"]]),
+        ]).contents()
+
+        #expect(contents.rows.count == 4)  // 헤더 1 + 데이터 3
+        #expect(contents.origin(at: 0) == SheetOrigin(tab: "strings", row: 1))
+        #expect(contents.origin(at: 2) == SheetOrigin(tab: "strings", row: 3))
+        // 병합본 4행째가 errors 탭의 2행이다.
+        #expect(contents.origin(at: 3) == SheetOrigin(tab: "errors", row: 2))
+    }
+
+    @Test("중복 키 오류가 어느 탭 몇 행인지 짚는다")
+    func namesTheTabInDuplicateErrors() throws {
+        let pipeline = try makePipeline(
+            StubTabs([
+                ("strings", [["키", "한국어"], ["a", "가"], ["dup", "첫 번째"]]),
+                ("errors", [["키", "한국어"], ["dup", "두 번째"]]),
+            ]))
+
+        do {
+            _ = try pipeline.loadTable()
+            Issue.record("중복 키인데 통과했습니다")
+        } catch let error as StringsmithError {
+            guard case let .duplicateKey(key, rows) = error else {
+                Issue.record("duplicateKey 여야 한다: \(error)")
+                return
+            }
+            #expect(key == "dup")
+            // "3, 4" 가 아니라 어느 탭 몇 행인지 나와야 한다.
+            #expect(rows == ["strings!3", "errors!2"])
+        }
+    }
+
+    @Test("탭이 하나면 표기가 지금까지와 같다")
+    func keepsPlainNumbersForASingleTab() throws {
+        let pipeline = try makePipeline(
+            StubTabs([("시트1", [["키", "한국어"], ["a", "가"], ["a", "또 가"]])]))
+        do {
+            _ = try pipeline.loadTable()
+            Issue.record("중복 키인데 통과했습니다")
+        } catch let error as StringsmithError {
+            guard case let .duplicateKey(_, rows) = error else { return }
+            #expect(rows == ["2", "3"])
+        }
+    }
+
+    // MARK: 도우미
+
+    /// 탭별 행을 그대로 돌려주는 가짜 소스. 네트워크 없이 병합 결과만 본다.
+    struct StubTabs: SheetSource {
+        let tabs: [(String, [[String]])]
+        init(_ tabs: [(String, [[String]])]) { self.tabs = tabs }
+
+        func contents() throws -> SheetContents {
+            var rows: [[String]] = []
+            var origins: [SheetOrigin] = []
+            for (index, (tab, tabRows)) in tabs.enumerated() {
+                // 첫 탭은 헤더까지, 나머지는 헤더를 건너뛴다.
+                let start = index == 0 ? 0 : 1
+                for offset in start..<tabRows.count {
+                    rows.append(tabRows[offset])
+                    origins.append(SheetOrigin(tab: tab, row: offset + 1))
+                }
+            }
+            // 탭이 하나면 출처를 싣지 않는다 — 지금까지의 표기를 그대로 둔다.
+            return SheetContents(rows: rows, origins: tabs.count > 1 ? origins : [])
+        }
+    }
+
+    func makePipeline(_ source: StubTabs) throws -> Pipeline {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("stringsmith-origin-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let configuration = Configuration(
+            source: SourceConfig(path: "sheet.csv", defaultLocale: "ko"),
+            columns: ColumnMapping(key: "키", languages: ["ko": "한국어"]),
+            output: OutputConfig(path: "out")
+        )
+        return Pipeline(
+            configuration: configuration, baseDirectory: directory.path, source: source)
+    }
+}

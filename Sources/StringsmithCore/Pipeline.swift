@@ -9,11 +9,19 @@ public struct Pipeline: Sendable {
     public let baseDirectory: String
     /// 설정의 `output.artifacts`를 이번 실행에만 덮어쓴다.
     public let only: [String]?
+    /// 설정 대신 쓸 소스. 테스트에서 네트워크 없이 갈아끼우는 자리다.
+    let sourceOverride: SheetSource?
 
-    public init(configuration: Configuration, baseDirectory: String, only: [String]? = nil) {
+    public init(
+        configuration: Configuration,
+        baseDirectory: String,
+        only: [String]? = nil,
+        source: SheetSource? = nil
+    ) {
         self.configuration = configuration
         self.baseDirectory = baseDirectory
         self.only = only
+        self.sourceOverride = source
     }
 
     /// 내용이 같으면 쓰지 않는다. mtime 을 건드리면 불필요한 재빌드가 난다.
@@ -40,6 +48,7 @@ public struct Pipeline: Sendable {
 
     /// 설정이 가리키는 시트 소스를 만든다.
     public func makeSource() throws -> SheetSource {
+        if let sourceOverride { return sourceOverride }
         switch configuration.source.type {
         case "google-sheets":
             guard let url = configuration.source.url, !url.isEmpty else {
@@ -68,7 +77,8 @@ public struct Pipeline: Sendable {
     public func loadTable() throws -> LocalizationTable {
         let source = try makeSource()
         let path = configuration.source.url ?? resolve(configuration.source.path)
-        let rows = try source.rows()
+        let contents = try source.contents()
+        let rows = contents.rows
 
         guard !rows.isEmpty else {
             throw StringsmithError.emptySheet(path: path)
@@ -114,11 +124,13 @@ public struct Pipeline: Sendable {
         }
 
         var entries: [LocalizationEntry] = []
-        var seen: [String: [Int]] = [:]
+        var seen: [String: [String]] = [:]
 
         for offset in headerRow..<rows.count {
             let row = rows[offset]
-            let sheetRow = offset + 1  // 1-based 시트 행 번호
+            // 탭을 이어 붙였으면 병합본이 아니라 **원래 탭의** 행 번호를 쓴다.
+            let origin = contents.origin(at: offset)
+            let sheetRow = origin?.row ?? offset + 1
 
             // 완전히 빈 행은 조용히 건너뛴다. 실무 시트에는 늘 섞여 있다.
             let isBlank = !row.contains {
@@ -139,22 +151,23 @@ public struct Pipeline: Sendable {
                     screen: cell(row, screenIndex),
                     comment: cell(row, descriptionIndex),
                     values: values,
-                    sourceRow: sheetRow
+                    sourceRow: sheetRow,
+                    sourceTab: origin?.tab
                 )
             )
-            seen[key, default: []].append(sheetRow)
+            seen[key, default: []].append(entries[entries.count - 1].sourceLabel)
         }
 
         // V2 — 키 중복
         if let duplicate = seen.filter({ $0.value.count > 1 }).min(by: { $0.key < $1.key }) {
-            throw StringsmithError.duplicateKey(key: duplicate.key, rows: duplicate.value.sorted())
+            throw StringsmithError.duplicateKey(key: duplicate.key, rows: duplicate.value)
         }
 
         // V4 — 원문 값 누락
         let sourceLocale = configuration.source.defaultLocale
         for entry in entries where (entry.values[sourceLocale] ?? "").isEmpty {
             throw StringsmithError.emptySourceValue(
-                key: entry.key, locale: sourceLocale, row: entry.sourceRow
+                key: entry.key, locale: sourceLocale, row: entry.sourceLabel
             )
         }
 

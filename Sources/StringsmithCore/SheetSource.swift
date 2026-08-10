@@ -4,8 +4,46 @@ import Foundation
 ///
 /// 로컬 파일과 Google Sheets 를 같은 자리에 꽂기 위한 경계다. XLSX·TMS 도 이 자리에 온다.
 public protocol SheetSource: Sendable {
+    /// 행 × 열과, 각 행이 원래 어디에 있었는지.
+    func contents() throws -> SheetContents
+}
+
+extension SheetSource {
+    /// 출처가 필요 없을 때 쓰는 지름길.
+    public func rows() throws -> [[String]] { try contents().rows }
+}
+
+/// 시트에서 읽어들인 것.
+public struct SheetContents: Sendable, Equatable {
     /// 행 × 열. 행마다 열 개수가 달라도 된다 — 정규화는 호출자가 한다.
-    func rows() throws -> [[String]]
+    public var rows: [[String]]
+    /// `rows` 와 길이가 같다. 탭을 이어 붙였을 때만 채운다.
+    ///
+    /// 이어 붙인 표의 102행이 두 번째 탭의 2행일 수 있다. 이걸 들고 다니지 않으면
+    /// 오류가 가리키는 행을 사람이 찾아갈 수 없다.
+    public var origins: [SheetOrigin]
+
+    public init(rows: [[String]], origins: [SheetOrigin] = []) {
+        self.rows = rows
+        self.origins = origins
+    }
+
+    /// 병합본의 인덱스(0-based)를 원래 자리로 바꾼다.
+    public func origin(at index: Int) -> SheetOrigin? {
+        index < origins.count ? origins[index] : nil
+    }
+}
+
+/// 어느 탭 몇 행이었는지.
+public struct SheetOrigin: Sendable, Equatable {
+    public var tab: String
+    /// 그 탭에서의 행 번호(1-based).
+    public var row: Int
+
+    public init(tab: String, row: Int) {
+        self.tab = tab
+        self.row = row
+    }
 }
 
 // MARK: - 로컬 파일
@@ -17,8 +55,8 @@ public struct LocalFileSource: SheetSource {
         self.path = path
     }
 
-    public func rows() throws -> [[String]] {
-        try CSVParser.forFile(at: path).parseFile(at: path)
+    public func contents() throws -> SheetContents {
+        SheetContents(rows: try CSVParser.forFile(at: path).parseFile(at: path))
     }
 }
 
@@ -131,9 +169,9 @@ public struct GoogleSheetsSource: SheetSource {
         self.authorized = authorized
     }
 
-    public func rows() throws -> [[String]] {
+    public func contents() throws -> SheetContents {
         guard tabs.count > 1 else {
-            return try rows(tab: tabs.first ?? gid)
+            return SheetContents(rows: try rows(tab: tabs.first ?? gid))
         }
         return try merged()
     }
@@ -148,8 +186,9 @@ public struct GoogleSheetsSource: SheetSource {
     ///
     /// 화면·도메인별로 탭을 나눠 둔 시트가 흔하다. 헤더가 서로 다르면 이어 붙이는 순간
     /// 열이 어긋나므로, 붙이기 전에 대조해서 다르면 멈춘다 — 조용히 섞이는 것보다 낫다.
-    func merged() throws -> [[String]] {
+    func merged() throws -> SheetContents {
         var out: [[String]] = []
+        var origins: [SheetOrigin] = []
         var header: [String]?
         var headerTab = ""
 
@@ -164,6 +203,7 @@ public struct GoogleSheetsSource: SheetSource {
                 headerTab = tab
                 // 첫 탭은 헤더 위 안내 행까지 통째로 넘긴다 — headerRow 가 그대로 맞아야 한다.
                 out = rows
+                origins = rows.indices.map { SheetOrigin(tab: tab, row: $0 + 1) }
                 continue
             }
             guard normalize(rows[headerIndex]) == normalize(first) else {
@@ -184,8 +224,11 @@ public struct GoogleSheetsSource: SheetSource {
                         """))
             }
             out += rows[(headerIndex + 1)...]
+            origins += rows.indices.dropFirst(headerIndex + 1).map {
+                SheetOrigin(tab: tab, row: $0 + 1)
+            }
         }
-        return out
+        return SheetContents(rows: out, origins: origins)
     }
 
     /// 헤더 비교용. 앞뒤 공백과 뒤쪽 빈 칸은 차이로 치지 않는다 —

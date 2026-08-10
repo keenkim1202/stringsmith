@@ -86,8 +86,8 @@ is normal.
 Tab names only work when signed in, since resolving a name to a tab takes the API. Without a
 sign-in, list `gid` values instead.
 
-> Row numbers in errors count from the joined table, not from the tab a row came from. Row 102 of
-> a join may be row 2 of the second tab.
+> Errors name the tab a row came from — `errors!2`, not `102`. Row 102 of a join is row 2 of the
+> second tab, and only the second form is something you can go and look at.
 
 ### Private sheets
 

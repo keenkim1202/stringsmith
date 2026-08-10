@@ -14,19 +14,31 @@ public struct LocalizationEntry: Sendable, Equatable {
     public var values: [String: String]
     /// 원본 시트에서의 행 번호(1-based). 오류 메시지에만 쓴다.
     public var sourceRow: Int
+    /// 여러 탭을 이어 붙였을 때 이 행이 있던 탭. 단일 탭이면 nil.
+    public var sourceTab: String?
 
     public init(
         key: String,
         screen: String? = nil,
         comment: String? = nil,
         values: [String: String],
-        sourceRow: Int = 0
+        sourceRow: Int = 0,
+        sourceTab: String? = nil
     ) {
         self.key = key
         self.screen = screen
         self.comment = comment
         self.values = values
         self.sourceRow = sourceRow
+        self.sourceTab = sourceTab
+    }
+
+    /// 오류 메시지에 쓸 위치 표기.
+    ///
+    /// 탭을 이어 붙이면 행 번호만으로는 어디를 봐야 할지 알 수 없다 — 병합본의 102행이
+    /// 두 번째 탭의 2행일 수 있다. 탭이 있으면 `errors!3` 처럼 함께 적는다.
+    public var sourceLabel: String {
+        sourceTab.map { "\($0)!\(sourceRow)" } ?? "\(sourceRow)"
     }
 }
 
@@ -61,9 +73,9 @@ public enum StringsmithError: Error, Sendable, Equatable {
     /// 헤더 행 번호가 시트 범위를 벗어남.
     case headerRowOutOfRange(requested: Int, totalRows: Int)
     /// 같은 키가 두 번 이상 나타남.
-    case duplicateKey(key: String, rows: [Int])
+    case duplicateKey(key: String, rows: [String])
     /// 원문 로케일 값이 비어 있음.
-    case emptySourceValue(key: String, locale: String, row: Int)
+    case emptySourceValue(key: String, locale: String, row: String)
     /// 변수(플레이스홀더) 검증 실패. 모든 문제를 모아 한 번에 보여준다.
     case validationFailed(issues: [String])
     /// 설정 파일을 읽거나 해석할 수 없음.
@@ -114,7 +126,7 @@ extension StringsmithError: CustomStringConvertible {
                 """)
 
         case let .duplicateKey(key, rows):
-            let rowList = rows.map(String.init).joined(separator: ", ")
+            let rowList = rows.joined(separator: ", ")
             return tr(
                 """
                 Key "\(key)" appears more than once (rows \(rowList)).
