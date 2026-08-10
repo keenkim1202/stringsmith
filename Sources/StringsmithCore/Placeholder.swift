@@ -54,14 +54,22 @@ public struct PlaceholderConfig: Codable, Sendable, Equatable {
     /// `auto`: 변수가 2개 이상일 때만 위치 지정자(`%1$@`)를 쓴다.
     /// `always`: 항상. `never`: 절대 안 씀(어순이 바뀌는 언어에서 위험).
     public var positional: String
+    /// 정수(`%d`)로 내보낼 변수 이름.
+    ///
+    /// 보통은 비어 있다 — 타입을 항상 `%@` 로 두는 게 이 도구의 결정이다. 예외는 복수형인데,
+    /// `.stringsdict` 의 `NSStringPluralRuleType` 은 **수를 봐야** 어느 범주인지 고를 수 있어서
+    /// 세는 변수만은 정수여야 한다.
+    public var numeric: Set<String>
 
     public init(
         syntax: [String] = ["apple", "brace"],
         braceOpen: String = "{",
         braceClose: String = "}",
         escape: String = "\\",
-        positional: String = "auto"
+        positional: String = "auto",
+        numeric: Set<String> = []
     ) {
+        self.numeric = numeric
         self.syntax = syntax
         self.braceOpen = braceOpen
         self.braceClose = braceClose
@@ -76,6 +84,7 @@ public struct PlaceholderConfig: Codable, Sendable, Equatable {
         braceClose = try c.decodeIfPresent(String.self, forKey: .braceClose) ?? "}"
         escape = try c.decodeIfPresent(String.self, forKey: .escape) ?? "\\"
         positional = try c.decodeIfPresent(String.self, forKey: .positional) ?? "auto"
+        numeric = Set(try c.decodeIfPresent([String].self, forKey: .numeric) ?? [])
     }
 
     var wantsApple: Bool { syntax.contains("apple") }
@@ -408,7 +417,8 @@ public struct IOSFormatRenderer: Sendable {
                 out += hasPlaceholders ? text.replacingOccurrences(of: "%", with: "%%") : text
             case let .placeholder(placeholder):
                 guard let position = plan.positions[placeholder.identity] else { return nil }
-                out += plan.usesPositional ? "%\(position)$@" : "%@"
+                let type = placeholder.name.map { config.numeric.contains($0) } == true ? "d" : "@"
+                out += plan.usesPositional ? "%\(position)$\(type)" : "%\(type)"
             }
         }
         return out

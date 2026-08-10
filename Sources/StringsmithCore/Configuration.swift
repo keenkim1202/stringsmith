@@ -99,6 +99,8 @@ public struct OutputConfig: Codable, Sendable, Equatable {
     public var path: String
     /// 테이블 이름. `Localizable.xcstrings`의 앞부분이 된다.
     public var tableName: String
+    /// `.stringsdict` 에서 수를 세는 변수 이름. 이것만 `%d` 로 나간다.
+    public var pluralVariable: String
     /// Swift 접근자 생성 옵션.
     public var swift: SwiftCodegen.Options
 
@@ -106,11 +108,13 @@ public struct OutputConfig: Codable, Sendable, Equatable {
         artifacts: [String] = ["xcstrings", "swift"],
         path: String,
         tableName: String = "Localizable",
+        pluralVariable: String = "count",
         swift: SwiftCodegen.Options = SwiftCodegen.Options()
     ) {
         self.artifacts = artifacts
         self.path = path
         self.tableName = tableName
+        self.pluralVariable = pluralVariable
         self.swift = swift
     }
 
@@ -124,6 +128,8 @@ public struct OutputConfig: Codable, Sendable, Equatable {
             ?? ["xcstrings", "swift"]
         path = try c.decode(String.self, forKey: .path)
         tableName = try c.decodeIfPresent(String.self, forKey: .tableName) ?? "Localizable"
+        pluralVariable =
+            try c.decodeIfPresent(String.self, forKey: .pluralVariable) ?? "count"
         swift =
             try c.decodeIfPresent(SwiftCodegen.Options.self, forKey: .swift)
             ?? SwiftCodegen.Options()
@@ -140,6 +146,7 @@ public struct OutputConfig: Codable, Sendable, Equatable {
     enum CodingKeys: String, CodingKey {
         case artifacts, path, tableName, swift
         case formats  // 레거시
+        case pluralVariable
     }
 }
 

@@ -185,6 +185,34 @@ Swift 예약어는 백틱으로 감싸고, 이름이 겹치면 접미사를 붙�
 > 쓰세요. stringsmith는 네임스페이스가 계층이고, `String`을 반환하며(iOS 16 미만에서도 동작),
 > 원문 값과 설명을 doc 주석에 넣는다는 점이 다릅니다.
 
+## 복수형
+
+복수형은 키 접미사로 적습니다:
+
+```
+cart.items.one     1 item
+cart.items.other   {count} items
+```
+
+산출물을 켜면 로케일마다 일반 키는 `.strings` 로, 복수형은 `.stringsdict` 로 나갑니다:
+
+```json
+{ "output": { "artifacts": ["strings", "stringsdict"] } }
+```
+
+접미사는 CLDR 범주입니다 — `zero` `one` `two` `few` `many` `other`. 하나만 있는 키는
+복수형으로 보지 않으므로 `ringtone` 이나 `settings.other` 는 평범한 키로 남습니다.
+
+**세는 변수는 `%@` 가 아니라 `%d` 로 나갑니다.** 모든 변수를 문자열로 두는 이 도구의 규칙에서
+유일한 예외입니다 — `NSStringPluralRuleType` 은 수를 봐야 범주를 고를 수 있습니다. 시트에서
+다른 이름을 쓴다면 `output.pluralVariable` 로 바꿉니다.
+
+`validate` 는 범주를 그 언어와 대조합니다. `other` 는 반드시 있어야 하고(CLDR 요구), 그 언어가
+쓰지 않는 형태와 필요한데 없는 형태를 짚습니다. 내장 표에 없는 언어는 추측하지 않고 넘어갑니다.
+
+> 원문 언어에는 없는 형태를 요구하지 않습니다. 한국어는 `other` 뿐이므로 `cart.items.one` 의
+> 한국어 칸은 비는 게 정상이고 누락으로 보고하지 않습니다.
+
 ## 변수
 
 시트의 변수 표기를 iOS 포맷 지정자로 바꿉니다. **원문 로케일이 위치 번호를 정하고, 번역은
@@ -385,6 +413,8 @@ ss drift              # 또는: ss drift path/to/Sources
 | 키 | 값 |
 |---|---|
 | `source.type` | `csv` · `google-sheets` |
+| `output.artifacts` | `xcstrings` · `swift` · `strings` · `stringsdict` |
+| `output.pluralVariable` | 수를 세는 변수 이름 (기본 `count`) |
 | `source.url` / `source.gid` | Google Sheets 공유 URL, 그 안의 탭 |
 | `source.tabs` | 이어 붙일 탭. gid 또는 이름 |
 | `validation.keyPattern` | 키가 따라야 할 정규식 (없으면 형식만 검사) |

@@ -188,6 +188,36 @@ Swift keywords get backticks; name collisions get a suffix and a report.
 > stringsmith differs by nesting namespaces, returning `String` (works below iOS 16), and putting
 > the source value and comments into doc comments.
 
+## Plurals
+
+Plurals are written as key suffixes:
+
+```
+cart.items.one     1 item
+cart.items.other   {count} items
+```
+
+Turn on the artifacts and each locale gets a `.strings` for ordinary keys and a `.stringsdict`
+for the plural ones:
+
+```json
+{ "output": { "artifacts": ["strings", "stringsdict"] } }
+```
+
+Suffixes are the CLDR categories — `zero` `one` `two` `few` `many` `other`. A key with only one
+of them is not treated as a plural, so `ringtone` and `settings.other` stay ordinary keys.
+
+The **count variable renders as `%d`, not `%@`**, which is the one exception to this tool's
+everything-is-a-string rule. `NSStringPluralRuleType` has to see a number to pick a category.
+Rename it with `output.pluralVariable` if your sheet calls it something else.
+
+`validate` checks the categories against the locale: `other` must exist (CLDR requires it), a
+form the language never uses is reported, and so is one it needs but the sheet lacks. Languages
+outside the built-in table are left alone rather than guessed at.
+
+> The source locale is not asked for forms it does not have. Korean only has `other`, so the
+> Korean cell of `cart.items.one` is expected to be empty and is not reported as missing.
+
 ## Variables
 
 Sheet notation is converted to iOS format specifiers. **The source locale assigns the positions,
@@ -397,6 +427,8 @@ Paths are relative to the config file, so it works from anywhere in the repo.
 | Key | Values |
 |---|---|
 | `source.type` | `csv` · `google-sheets` |
+| `output.artifacts` | `xcstrings` · `swift` · `strings` · `stringsdict` |
+| `output.pluralVariable` | Variable that carries the count (default `count`) |
 | `source.url` / `source.gid` | Google Sheets share URL, and a tab within it |
 | `source.tabs` | Tabs to join, by gid or name |
 | `validation.keyPattern` | Regex keys must match (unset = only structural checks) |

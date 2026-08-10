@@ -54,6 +54,28 @@ public struct PlaceholderProcessor: Sendable {
         for entry in table.entries {
             var entry = entry
             guard let sourceValue = entry.values[table.sourceLocale] else {
+                // 원문이 없는 행. 복수형에서 **원문 언어가 쓰지 않는 범주**가 여기 온다 —
+                // 한국어는 `other` 뿐이라 `cart.items.one` 의 한국어 칸이 정상적으로 비고,
+                // 영어·러시아어에만 값이 있다.
+                //
+                // 대조할 기준이 없으니 로케일마다 제 값만 보고 변환한다. 어순을 맞출 원문이
+                // 없어 위치 번호를 공유할 수도 없지만, 애초에 공유할 대상이 없다.
+                for locale in entry.values.keys.sorted() {
+                    guard let raw = entry.values[locale] else { continue }
+                    let (parsed, findings) = parser.parse(raw)
+                    report(
+                        findings: findings, key: entry.key, locale: locale,
+                        row: entry.sourceLabel, into: &issues
+                    )
+                    guard let rendered = renderer.render(parsed, using: renderer.plan(for: parsed))
+                    else { continue }
+                    if rendered != raw {
+                        conversions.append(
+                            Conversion(
+                                key: entry.key, locale: locale, before: raw, after: rendered))
+                    }
+                    entry.values[locale] = rendered
+                }
                 entries.append(entry)
                 continue
             }

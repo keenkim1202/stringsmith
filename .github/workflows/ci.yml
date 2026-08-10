@@ -155,6 +155,56 @@ jobs:
           # 편집이 표 중간에 끼어들어 뒷부분이 머리글 없는 조각으로 떨어진 적이 있다.
           python3 Scripts/check-tables.py README.md README.ko.md
 
+      # 복수형은 Apple 도구가 읽을 수 있는 plist 여야 하고, 세는 변수가 정수여야 한다.
+      - name: Plurals and legacy output
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          cd "$work"
+          cat > strings.csv <<'CSV'
+          key,ko,en,ru
+          cart.title,장바구니,Cart,Корзина
+          cart.items.one,,{count} item,{count} товар
+          cart.items.few,,,{count} товара
+          cart.items.many,,,{count} товаров
+          cart.items.other,상품 {count}개,{count} items,{count} товара
+          CSV
+          ss="$GITHUB_WORKSPACE/.build/debug/stringsmith"
+          STRINGSMITH_LANG=en "$ss" init >/dev/null
+          python3 - <<'PY'
+          import json
+          d = json.load(open('.stringsmith.json'))
+          d['output']['artifacts'] = ['strings', 'stringsdict']
+          json.dump(d, open('.stringsmith.json', 'w'))
+          PY
+          STRINGSMITH_LANG=en "$ss" generate >/dev/null
+
+          # Apple 도구가 읽을 수 있어야 한다.
+          plutil -lint Resources/*/Localizable.stringsdict
+          plutil -lint Resources/*/Localizable.strings
+
+          # 세는 변수는 %d 여야 한다 — %@ 면 iOS 가 범주를 고를 수 없다.
+          grep -q "<string>%d items</string>" Resources/en.lproj/Localizable.stringsdict
+          grep -q "<string>d</string>" Resources/en.lproj/Localizable.stringsdict
+          # 원문이 비어 있는 행도 변환돼야 한다.
+          if grep -q "{count}" Resources/ru.lproj/Localizable.stringsdict; then
+            echo "::error::원문이 없는 복수형 행이 변환되지 않았습니다"
+            exit 1
+          fi
+          # 복수형은 strings 가 아니라 stringsdict 로 간다.
+          if grep -q "cart.items" Resources/en.lproj/Localizable.strings; then
+            echo "::error::복수형이 .strings 에 들어갔습니다"
+            exit 1
+          fi
+          grep -q "cart.title" Resources/en.lproj/Localizable.strings
+
+          # 한국어는 other 뿐이라 one 칸이 비는 게 정상이다. 누락으로 잡으면 안 된다.
+          STRINGSMITH_LANG=en "$ss" validate | tee v.txt
+          if grep -q "cart.items.one" v.txt; then
+            echo "::error::원문 언어가 쓰지 않는 복수형을 누락으로 보고했습니다"
+            exit 1
+          fi
+
       # 드리프트는 양방향을 다 봐야 하고, 생성된 파일에 속으면 안 된다.
       - name: Drift detection
         run: |

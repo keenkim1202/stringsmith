@@ -81,6 +81,8 @@ public struct Warning: Sendable, Equatable {
         case whitespace
         /// 원문 대비 유난히 긴 번역.
         case length
+        /// 복수형 범주 문제.
+        case plural
         /// 그 밖에.
         case other
     }

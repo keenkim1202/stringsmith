@@ -164,8 +164,18 @@ public struct Pipeline: Sendable {
         }
 
         // V4 — 원문 값 누락
+        //
+        // 복수형은 예외다. 한국어는 범주가 `other` 하나뿐이라 `cart.items.one` 의 한국어
+        // 칸이 비는 게 정상이고, 영어·러시아어에만 값이 있다. 원문 로케일이 쓰지 않는
+        // 범주까지 채우라고 하면 시트에 뜻 없는 값을 넣게 된다.
         let sourceLocale = configuration.source.defaultLocale
+        let sourceCategories = CLDR.categories(for: sourceLocale)
         for entry in entries where (entry.values[sourceLocale] ?? "").isEmpty {
+            if let category = Self.pluralSuffix(of: entry.key),
+                let sourceCategories, !sourceCategories.contains(category)
+            {
+                continue
+            }
             throw StringsmithError.emptySourceValue(
                 key: entry.key, locale: sourceLocale, row: entry.sourceLabel
             )
@@ -201,6 +211,8 @@ public struct Pipeline: Sendable {
         public var conversions: [PlaceholderProcessor.Conversion]
         /// 설정상 실패로 봐야 하는 경고. 비어 있지 않으면 `build` 가 멈춘다.
         public var blocking: [Warning]
+        /// 변환 전 원본. 복수형은 세는 변수만 정수로 다시 그려야 해서 필요하다.
+        public var raw: LocalizationTable
     }
 
     /// 시트를 읽어 검증만 한다.
@@ -227,7 +239,16 @@ public struct Pipeline: Sendable {
         // V5 — 번역 누락 (경고)
         let sourceLocale = table.sourceLocale
         for locale in table.locales where locale != sourceLocale {
-            let missing = table.entries.filter { ($0.values[locale] ?? "").isEmpty }
+            // 그 언어가 쓰지 않는 복수형 범주는 비어 있는 게 정상이다. 영어에 `few` 가
+            // 없다고 알리면, 채울 수도 없는 것을 채우라는 말이 된다.
+            let localeCategories = CLDR.categories(for: locale)
+            let missing = table.entries.filter { entry in
+                guard (entry.values[locale] ?? "").isEmpty else { return false }
+                if let category = Self.pluralSuffix(of: entry.key), let localeCategories {
+                    return localeCategories.contains(category)
+                }
+                return true
+            }
             if !missing.isEmpty {
                 warnings.append(
                     Warning(
@@ -268,12 +289,26 @@ public struct Pipeline: Sendable {
         warnings += SheetRules.invisibleCharacters(table.entries)
         warnings += SheetRules.lengthOutliers(table, factor: rules.lengthFactor)
 
+        // V6 — 복수형 범주. 접미사로 묶이는 게 있을 때만 본다.
+        let plural = Plurals.split(table)
+        if !plural.groups.isEmpty {
+            warnings += Plurals.problems(
+                plural.groups, locales: table.locales, sourceLocale: table.sourceLocale)
+        }
+
         let failOn = Set(configuration.validation.failOn)
         return ValidationResult(
             table: table,
             warnings: warnings,
             conversions: processed.conversions,
-            blocking: warnings.filter { failOn.contains($0.kind) })
+            blocking: warnings.filter { failOn.contains($0.kind) },
+            raw: raw)
+    }
+
+    /// 키 끝에 붙은 복수형 범주. 없으면 `nil`.
+    static func pluralSuffix(of key: String) -> PluralCategory? {
+        guard let separator = key.lastIndex(of: ".") else { return nil }
+        return PluralCategory(rawValue: String(key[key.index(after: separator)...]))
     }
 
     /// 시트와 코드가 어긋난 곳을 찾는다.
@@ -308,6 +343,21 @@ public struct Pipeline: Sendable {
         var written: [String] = []
         var unchanged: [String] = []
         var warnings = checked.warnings
+
+        // 산출물마다 같은 판단을 반복하지 않도록 한 자리에 모은다.
+        func record(_ data: Data, at path: String) throws {
+            if dryRun {
+                if FileManager.default.contents(atPath: path) == data {
+                    unchanged.append(path)
+                } else {
+                    written.append(path)
+                }
+            } else if try Self.writeIfChanged(data, to: path) {
+                written.append(path)
+            } else {
+                unchanged.append(path)
+            }
+        }
 
         for artifact in artifacts {
             switch artifact {
@@ -350,6 +400,34 @@ public struct Pipeline: Sendable {
                     written.append(path)
                 } else {
                     unchanged.append(path)
+                }
+
+            case "strings", "stringsdict":
+                // 둘은 한 쌍이다 — 복수형은 stringsdict 로, 나머지는 strings 로 간다.
+                //
+                // 복수형만 원본에서 다시 그린다. `NSStringPluralRuleType` 은 수를 봐야 어느
+                // 범주인지 고를 수 있어서, 세는 변수가 `%@` 면 iOS 가 판단할 수 없다.
+                var pluralConfig = configuration.placeholders
+                pluralConfig.numeric = [configuration.output.pluralVariable]
+                let counted = PlaceholderProcessor(config: pluralConfig).process(checked.raw)
+                let split = (
+                    groups: Plurals.split(counted.table).groups,
+                    singles: Plurals.split(table).singles
+                )
+                for locale in table.locales {
+                    let directory = configuration.output.path + "/\(locale).lproj"
+                    let name = configuration.output.tableName
+
+                    if artifact == "strings" {
+                        let path = resolve(directory + "/\(name).strings")
+                        let text = LegacyOutput.strings(for: locale, entries: split.singles)
+                        try record(Data(text.utf8), at: path)
+                    } else if let text = LegacyOutput.stringsdict(
+                        for: locale, groups: split.groups)
+                    {
+                        let path = resolve(directory + "/\(name).stringsdict")
+                        try record(Data(text.utf8), at: path)
+                    }
                 }
 
             default:
