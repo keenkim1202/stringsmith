@@ -57,6 +57,17 @@ public struct SwiftCodegen: Sendable {
         public var source: String
         /// 이름이 충돌해 접미사를 붙인 항목.
         public var collisions: [Collision]
+        /// 키마다 만들어진 접근자 경로. 드리프트 검출이 코드에서 이걸 찾는다.
+        public var accessors: [Accessor]
+    }
+
+    /// 키 하나에 대해 만들어진 Swift 접근자.
+    public struct Accessor: Sendable, Equatable {
+        public var key: String
+        /// `L10n.home.title` 같은 전체 경로.
+        public var path: String
+        /// 시트에서의 자리.
+        public var location: String
     }
 
     /// 같은 Swift 이름이 되어 접미사를 붙인 키.
@@ -72,6 +83,7 @@ public struct SwiftCodegen: Sendable {
 
     public func generate(table: LocalizationTable) -> Result {
         var collisions: [Collision] = []
+        var accessors: [Accessor] = []
         let members = table.entries.map { entry in
             Member(
                 entry: entry,
@@ -113,6 +125,12 @@ public struct SwiftCodegen: Sendable {
                     member.identifier = "\(member.identifier)\(suffix)"
                 }
                 used.insert(member.identifier)
+                accessors.append(
+                    Accessor(
+                        key: member.entry.key,
+                        path: [options.enumName, namespace, member.identifier]
+                            .filter { !$0.isEmpty }.joined(separator: "."),
+                        location: member.entry.sourceLabel))
                 out += render(member, table: table, indent: indent)
             }
 
@@ -121,7 +139,7 @@ public struct SwiftCodegen: Sendable {
 
         out += "}\n"
         out += lookupHelper()
-        return Result(source: out, collisions: collisions)
+        return Result(source: out, collisions: collisions, accessors: accessors)
     }
 
     // MARK: - 조각

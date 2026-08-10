@@ -276,6 +276,39 @@ ss preview            # 확인 앱에서 열기
 경고는 기본적으로 실패가 아닙니다. 아직 채우는 중인 시트에서 번역 누락은 정상적인 상태니까요.
 `--strict` 는 그렇지 않을 수 있는 CI 용입니다.
 
+### `ss drift`
+
+시트와 코드가 어긋난 곳을 찾습니다:
+
+```bash
+ss drift              # 또는: ss drift path/to/Sources
+```
+
+```
+🔍 Scanned 34 Swift file(s).
+
+📄→ 2 key(s) in the sheet, never used in code:
+     legacy.banner (row 41) — L10n.Legacy.banner
+     legacy.promo (row 42) — L10n.Legacy.promo
+
+→📄 1 key(s) used in code but missing from the sheet:
+     profile.header Sources/ProfileView.swift:22
+```
+
+생성된 접근자를 쓰면 "코드가 필요로 하는데 시트에 없는 키" 는 컴파일이 막아 줍니다. 그쪽
+절반은 이미 해결돼 있고, 새어 나가는 건 나머지 둘입니다:
+
+- **안 쓰는 키.** 아무것도 깨지지 않으니 아무도 모르고, 번역료만 계속 나갑니다.
+- **문자열로 부르는 키.** `NSLocalizedString`·`String(localized:)`·`LocalizedStringKey` 는
+  생성된 타입을 우회합니다. 오타가 있어도 컴파일되고 런타임에 키가 그대로 나옵니다.
+
+`--strict` 는 종료 코드를 1로 냅니다 (CI 용). 생성된 파일은 훑지 않습니다 — 거기엔 모든 키가
+정의되어 있어서 세면 전부 "쓰고 있다" 가 됩니다. `.build`·`Pods`·`DerivedData` 등도
+건너뜁니다.
+
+> SwiftUI 의 `Text("...")` 는 일부러 키로 보지 않습니다. 거기서는 리터럴이 곧 키라서, 화면의
+> 모든 문구가 후보가 되면 보고서가 잡음이 됩니다.
+
 ### 무엇이 생성을 막는가
 
 | 문제 | 기본 |

@@ -122,6 +122,41 @@ jobs:
           STRINGSMITH_LANG=en "$ss" generate
           test -f Resources/Localizable.xcstrings
 
+      # 드리프트는 양방향을 다 봐야 하고, 생성된 파일에 속으면 안 된다.
+      - name: Drift detection
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          mkdir -p "$work/Sources"
+          cd "$work"
+          printf 'key,ko,en\nhome.title,홈,Home\nunused.key,안 씀,Unused\n' > strings.csv
+          cat > Sources/App.swift <<'SWIFT'
+          let a = L10n.Home.title
+          let b = NSLocalizedString("not.in.sheet", comment: "")
+          SWIFT
+          ss="$GITHUB_WORKSPACE/.build/debug/stringsmith"
+          STRINGSMITH_LANG=en "$ss" init >/dev/null
+          STRINGSMITH_LANG=en "$ss" generate >/dev/null
+          STRINGSMITH_LANG=en "$ss" drift | tee drift.txt
+
+          # 시트에만 있는 키
+          grep -q "unused.key" drift.txt
+          # 코드에만 있는 키 — 파일과 줄까지
+          grep -qE "not.in.sheet .*Sources/App.swift:2" drift.txt
+          # 쓰고 있는 키는 나오면 안 된다
+          if grep -q "home.title" drift.txt; then
+            echo "::error::쓰고 있는 키를 미사용으로 보고했습니다"
+            exit 1
+          fi
+          # 생성된 파일을 훑으면 모든 키가 "사용 중" 이 되어 아무것도 안 나온다
+          if ! grep -q "never used in code" drift.txt; then
+            echo "::error::생성된 파일까지 세어 미사용을 놓쳤습니다"
+            exit 1
+          fi
+          if STRINGSMITH_LANG=en "$ss" drift --strict >/dev/null 2>&1; then
+            echo "::error::--strict 인데 드리프트를 통과시켰습니다"; exit 1
+          fi
+
       # 인증 커맨드는 네트워크 없이도 올바른 안내를 내야 한다.
       - name: Auth commands
         run: |

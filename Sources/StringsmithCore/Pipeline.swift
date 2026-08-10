@@ -270,6 +270,25 @@ public struct Pipeline: Sendable {
             blocking: warnings.filter { failOn.contains($0.kind) })
     }
 
+    /// 시트와 코드가 어긋난 곳을 찾는다.
+    ///
+    /// 생성된 파일 자신은 훑지 않는다 — 거기엔 모든 키가 정의되어 있어서, 세면 전부
+    /// "쓰고 있다" 가 되어 버린다.
+    public func drift(root: String) throws -> DriftReport {
+        let table = try validate().table
+        let codegen = SwiftCodegen(
+            options: configuration.output.swift,
+            tableName: configuration.output.tableName
+        )
+        let generated = resolve(
+            configuration.output.path + "/" + configuration.output.swift.enumName + ".swift")
+
+        return try DriftDetector().detect(
+            accessors: codegen.generate(table: table).accessors,
+            root: root,
+            ignoring: [generated])
+    }
+
     /// 산출물을 만든다. `dryRun`이면 파일을 쓰지 않고 결과만 계산한다.
     public func build(dryRun: Bool = false) throws -> BuildResult {
         let checked = try validate()

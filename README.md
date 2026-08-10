@@ -283,6 +283,39 @@ Five items are listed by default; `-v` shows the rest. `generate` prints the sam
 Warnings do not fail by default: a missing translation is the normal state of a sheet someone
 is still filling in. `--strict` is for CI, where it may not be.
 
+### `ss drift`
+
+Find where the sheet and the code disagree:
+
+```bash
+ss drift              # or: ss drift path/to/Sources
+```
+
+```
+🔍 Scanned 34 Swift file(s).
+
+📄→ 2 key(s) in the sheet, never used in code:
+     legacy.banner (row 41) — L10n.Legacy.banner
+     legacy.promo (row 42) — L10n.Legacy.promo
+
+→📄 1 key(s) used in code but missing from the sheet:
+     profile.header Sources/ProfileView.swift:22
+```
+
+Using the generated accessors, a key the code needs but the sheet lacks is a compile error —
+that half is already handled. What still slips through is the other two:
+
+- **Unused keys.** Nothing breaks, so nobody notices, and you keep paying to translate them.
+- **Keys called by string.** `NSLocalizedString`, `String(localized:)` and `LocalizedStringKey`
+  bypass the generated type. A typo there compiles and falls back to the key at runtime.
+
+`--strict` exits non-zero, for CI. The generated file is not scanned — every key is defined
+there, so counting it would mark them all as used. `.build`, `Pods`, `DerivedData` and the like
+are skipped.
+
+> SwiftUI's `Text("...")` is deliberately not treated as a key. The literal *is* the key there,
+> so every string on screen would become a candidate and the report would be noise.
+
 ### What stops a build
 
 | Problem | Default |
