@@ -467,6 +467,7 @@ ss drift              # 또는: ss drift path/to/Sources
 | `validation.lengthFactor` | 중앙값의 몇 배부터 길다고 볼지 (기본 `1.8`, `0` 이면 끔) |
 | `validation.failOn` | `collision` · `missing` · `placeholder` · `other` (기본 `["collision"]`) |
 | `output.swift.namespace` | `keyPrefix` · `screen` · `none` |
+| `output.swift.path` | 생성 코드를 둘 곳. 없으면 `output.path` |
 | `output.swift.bundle` | `main` · `module` (SPM 리소스) |
 | `placeholders.syntax` | `apple` · `brace` · `xml` |
 | `placeholders.positional` | `auto` (2개 이상일 때만 위치 지정자) · `always` · `never` |
@@ -492,6 +493,20 @@ ss drift              # 또는: ss drift path/to/Sources
 - **`extractionState`는 `manual`** — 그래야 Xcode 자동 추출이 시트에서 온 키를 stale로 지우지 않습니다
 - **파일 내부 검증은 다른 도구에 맡깁니다.** [LocaleLint](https://forums.swift.org/t/localelint-ci-validation-for-ios-localization-files-string-catalogs-xliff/86939)·[Locheck](https://github.com/irskep/locheck)가
   `.xcstrings` 안쪽을 잘 봅니다. stringsmith는 **시트 쪽**을 검증합니다. 함께 쓰세요
+
+## 예제
+
+[`Examples/DemoApp`](Examples/DemoApp) 은 시트·설정·SwiftUI 앱이 한자리에 있고 실제로 돕니다:
+
+```bash
+cd Examples/DemoApp
+swift run DemoApp -- --dump --lang ja
+```
+
+생성된 파일을 읽어 볼 수 있게 커밋해 뒀고, 시트와 어긋나지 않는지 CI 가 봅니다. 거기서
+확인된 두 가지도 적어 뒀습니다 — **SwiftPM 은 String Catalog 를 컴파일하지 않고**(패키지는
+`--format strings` 로 내보내야 합니다), 생성 코드는 `resources:` 로 선언한 디렉터리에 둘 수
+없습니다.
 
 ## 개발
 

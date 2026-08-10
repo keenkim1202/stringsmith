@@ -1,0 +1,32 @@
+{
+  "source": {
+    "path": "strings.csv",
+    "headerRow": 1,
+    "defaultLocale": "ko"
+  },
+  "columns": {
+    "key": "key",
+    "screen": "screen",
+    "description": "comment",
+    "languages": {
+      "ko": "ko",
+      "en": "en",
+      "ja": "ja"
+    }
+  },
+  "output": {
+    "path": "Sources/DemoApp/Resources",
+    "artifacts": [
+      "strings",
+      "stringsdict",
+      "swift"
+    ],
+    "tableName": "Localizable",
+    "swift": {
+      "enumName": "L10n",
+      "namespace": "keyPrefix",
+      "bundle": "module",
+      "path": "Sources/DemoApp"
+    }
+  }
+}

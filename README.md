@@ -482,6 +482,7 @@ Paths are relative to the config file, so it works from anywhere in the repo.
 | `validation.lengthFactor` | Median multiple before a translation looks too long (default `1.8`, `0` off) |
 | `validation.failOn` | `collision` · `missing` · `placeholder` · `other` (default `["collision"]`) |
 | `output.swift.namespace` | `keyPrefix` · `screen` · `none` |
+| `output.swift.path` | Where the generated Swift goes, if not `output.path` |
 | `output.swift.bundle` | `main` · `module` (SPM resources) |
 | `placeholders.syntax` | `apple` · `brace` · `xml` |
 | `placeholders.positional` | `auto` (positional only when 2+) · `always` · `never` |
@@ -509,6 +510,20 @@ Colour is off by default when the output is not a terminal, so `ss generate > lo
 - **File-level validation is left to others.** [LocaleLint](https://forums.swift.org/t/localelint-ci-validation-for-ios-localization-files-string-catalogs-xliff/86939)
   and [Locheck](https://github.com/irskep/locheck) check inside `.xcstrings` well; stringsmith
   validates the *sheet* side. Use both.
+
+## Example
+
+[`Examples/DemoApp`](Examples/DemoApp) is a sheet, a config, and a SwiftUI app that runs:
+
+```bash
+cd Examples/DemoApp
+swift run DemoApp -- --dump --lang ja
+```
+
+Its generated files are committed so you can read them, and CI checks they still match the
+sheet. Two things it pinned down, both written up there: **SwiftPM does not compile String
+Catalogs** (a package has to ship `--format strings`), and generated code cannot sit in a
+directory declared as `resources:`.
 
 ## Development
 

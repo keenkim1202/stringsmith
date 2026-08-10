@@ -1,0 +1,11 @@
+key,screen,comment,ko,en,ja
+app.title,공통,앱 이름,스트링스미스 데모,Stringsmith Demo,Stringsmith デモ
+app.subtitle,공통,부제,시트 한 장에서 여기까지,From one sheet to here,シートからここまで
+cart.title,장바구니,화면 제목,장바구니,Cart,カート
+cart.greeting,장바구니,인사말. 이름이 들어간다,{name}님의 장바구니,{name}'s cart,{name}さんのカート
+cart.items.one,장바구니,상품 1개,,{count} item,{count}点
+cart.items.other,장바구니,상품 여러 개,상품 {count}개,{count} items,{count}点
+cart.empty,장바구니,비었을 때,장바구니가 비었습니다,Your cart is empty,カートは空です
+cart.discount,장바구니,할인 배너. 퍼센트가 리터럴이다,{name} 50% 할인,50% off for {name},{name} 50%オフ
+common.ok,공통,확인,확인,OK,OK
+common.cancel,공통,취소,취소,Cancel,キャンセル

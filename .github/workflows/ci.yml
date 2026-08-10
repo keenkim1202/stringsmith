@@ -155,6 +155,36 @@ jobs:
           # 편집이 표 중간에 끼어들어 뒷부분이 머리글 없는 조각으로 떨어진 적이 있다.
           python3 Scripts/check-tables.py README.md README.ko.md
 
+      # 예제가 실제로 돌아야 예제다. 커밋된 산출물이 시트와 어긋나는 것도 여기서 잡는다.
+      - name: Example app
+        run: |
+          set -euo pipefail
+          ss="$GITHUB_WORKSPACE/.build/debug/stringsmith"
+          cd Examples/DemoApp
+
+          # 커밋된 산출물이 시트에서 다시 만든 것과 같은가.
+          before="$(find Sources/DemoApp -type f -exec shasum {} \; | sort)"
+          "$ss" generate >/dev/null
+          after="$(find Sources/DemoApp -type f -exec shasum {} \; | sort)"
+          if [ "$before" != "$after" ]; then
+            echo "::error::예제의 커밋된 산출물이 낡았습니다 — stringsmith generate 를 돌리세요"
+            diff <(echo "$before") <(echo "$after") || true
+            exit 1
+          fi
+
+          swift build
+          # 키가 그대로 나오면 번들이 문자열을 못 찾은 것이다.
+          swift run DemoApp --dump --lang ko | tee dump.txt
+          grep -q "스트링스미스 데모" dump.txt
+          if grep -qE "^(app|cart)\." dump.txt; then
+            echo "::error::번역 대신 키가 나왔습니다"
+            exit 1
+          fi
+          # 복수형이 수에 따라 달라지는가 (영어는 one/other 가 다르다).
+          swift run DemoApp --dump --lang en | tee en.txt
+          grep -q "1 item" en.txt
+          grep -q "3 items" en.txt
+
       # 엑셀은 ZIP 이라 CSV 경로로 새어 들어가면 "UTF-8 이 아니다" 로만 끝난다.
       - name: XLSX source
         run: |

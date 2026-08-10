@@ -335,11 +335,16 @@ public struct Pipeline: Sendable {
             options: configuration.output.swift,
             tableName: configuration.output.tableName
         )
+        // 제외할 파일은 실제로 쓰는 경로여야 한다. 여기가 어긋나면 생성된 파일까지
+        // 세어서 모든 키가 "쓰고 있다" 가 되고, 드리프트가 아무것도 보고하지 않는다.
         let generated = resolve(
-            configuration.output.path + "/" + configuration.output.swift.enumName + ".swift")
+            (configuration.output.swift.path ?? configuration.output.path)
+                + "/" + configuration.output.swift.enumName + ".swift")
 
         return try DriftDetector().detect(
-            accessors: codegen.generate(table: table).accessors,
+            accessors: codegen.generate(
+                table: table, plurals: Plurals.split(table).groups
+            ).accessors,
             root: root,
             ignoring: [generated])
     }
@@ -390,9 +395,11 @@ public struct Pipeline: Sendable {
                 )
                 let result = codegen.generate(table: table, plurals: pluralGroups)
                 // 충돌 경고는 validate 가 이미 넣었다. 여기서 또 넣으면 두 번 나온다.
+                // 생성 코드는 리소스와 다른 곳에 둘 수 있다 — SwiftPM 은 리소스 디렉터리를
+                // 통째로 가져가므로 `.lproj` 옆에 두면 컴파일되지 않는다.
+                let directory = configuration.output.swift.path ?? configuration.output.path
                 let path = resolve(
-                    configuration.output.path + "/" + configuration.output.swift.enumName + ".swift"
-                )
+                    directory + "/" + configuration.output.swift.enumName + ".swift")
                 let data = Data(result.source.utf8)
                 if dryRun {
                     if FileManager.default.contents(atPath: path) == data {

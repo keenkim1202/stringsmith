@@ -17,6 +17,11 @@ public struct SwiftCodegen: Sendable {
         public var namespace: String
         /// `main`: `Bundle.main` — 앱 타깃. `module`: `Bundle.module` — SPM 리소스.
         public var bundle: String
+        /// 생성 코드를 둘 디렉터리. 없으면 `output.path` 와 같은 곳.
+        ///
+        /// 나눠야 하는 경우가 있다. SwiftPM 은 리소스 디렉터리를 통째로 가져가므로
+        /// `.lproj` 옆에 `.swift` 를 두면 그 코드가 컴파일되지 않고 리소스로 복사된다.
+        public var path: String?
         public var accessLevel: String
         /// 원문 값과 설명을 doc 주석에 넣는다.
         public var docComments: Bool
@@ -25,12 +30,14 @@ public struct SwiftCodegen: Sendable {
             enumName: String = "L10n",
             namespace: String = "keyPrefix",
             bundle: String = "main",
+            path: String? = nil,
             accessLevel: String = "public",
             docComments: Bool = true
         ) {
             self.enumName = enumName
             self.namespace = namespace
             self.bundle = bundle
+            self.path = path
             self.accessLevel = accessLevel
             self.docComments = docComments
         }
@@ -40,6 +47,7 @@ public struct SwiftCodegen: Sendable {
             enumName = try c.decodeIfPresent(String.self, forKey: .enumName) ?? "L10n"
             namespace = try c.decodeIfPresent(String.self, forKey: .namespace) ?? "keyPrefix"
             bundle = try c.decodeIfPresent(String.self, forKey: .bundle) ?? "main"
+            path = try c.decodeIfPresent(String.self, forKey: .path)
             accessLevel = try c.decodeIfPresent(String.self, forKey: .accessLevel) ?? "public"
             docComments = try c.decodeIfPresent(Bool.self, forKey: .docComments) ?? true
         }

@@ -10,4 +10,9 @@ DerivedData/
 # 예제 실행 산출물
 Examples/out/
 .stringsmith.json
+# 예제 앱의 설정은 보여 주려고 넣은 것이다.
+!Examples/DemoApp/.stringsmith.json
 .stringsmith/
+
+# 예제 앱의 빌드 산출물
+Examples/DemoApp/.build/
