@@ -122,6 +122,39 @@ jobs:
           STRINGSMITH_LANG=en "$ss" generate
           test -f Resources/Localizable.xcstrings
 
+      # README 가 실제와 어긋나는 건 조용히 일어난다. 적어 둔 것이 진짜인지 확인한다.
+      - name: Docs match the tool
+        run: |
+          set -euo pipefail
+          ss="$GITHUB_WORKSPACE/.build/debug/stringsmith"
+
+          # 문서에 적힌 커맨드·옵션이 실제로 있는가.
+          for c in init generate validate drift preview auth; do
+            "$ss" "$c" --help >/dev/null
+          done
+          "$ss" init --help | grep -q -- --url
+          "$ss" validate --help | grep -q -- --strict
+          "$ss" drift --help | grep -q -- --strict
+
+          # 설정 예시가 파싱될 뿐 아니라 실제로 돌아가는가.
+          work="$(mktemp -d)"
+          python3 - "$work" <<'PY'
+          import json, re, sys, csv
+          work = sys.argv[1]
+          block = re.search(r'## Configuration\n\n```json\n(.*?)\n```',
+                            open('README.md').read(), re.S).group(1)
+          json.dump(json.loads(block), open(f'{work}/.stringsmith.json', 'w'),
+                    indent=2, ensure_ascii=False)
+          w = csv.writer(open(f'{work}/strings.csv', 'w', newline='', encoding='utf-8'))
+          w.writerow(['번역 시트', '', '', '', '', ''])
+          w.writerow(['키', '화면', '설명', '한국어', '영어', '일본어'])
+          w.writerow(['home.title', '홈', '제목', '홈', 'Home', 'ホーム'])
+          PY
+          (cd "$work" && STRINGSMITH_LANG=en "$ss" validate)
+
+          # 편집이 표 중간에 끼어들어 뒷부분이 머리글 없는 조각으로 떨어진 적이 있다.
+          python3 Scripts/check-tables.py README.md README.ko.md
+
       # 드리프트는 양방향을 다 봐야 하고, 생성된 파일에 속으면 안 된다.
       - name: Drift detection
         run: |

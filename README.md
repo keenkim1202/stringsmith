@@ -242,7 +242,10 @@ ss preview     # opens the current project in the app
 ```bash
 ss init [sheet]      # draft .stringsmith.json from the sheet header
 ss generate          # write the artifacts
+ss validate          # check the sheet, write nothing
+ss drift             # find keys the sheet and the code disagree on
 ss preview           # open in the review app
+ss auth login        # sign in to Google for private sheets
 ```
 
 Every command also works spelled out as `stringsmith` — `ss` is just a symlink to the same binary,
@@ -254,8 +257,17 @@ locale on its own. `.stringsmith.json` is found by walking up from the current d
 
 | Option | Command | Meaning |
 |---|---|---|
-| `-o` `--output` | init | Output directory (default `Resources`) |
 | `--url` | init | Google Sheets share URL |
+| `-o` `--output` | init | Output directory (default `Resources`) |
+| `-r` `--header-row` | init | Header row number, 1-based |
+| `-s` `--source-locale` | init | Source locale |
+| `--artifacts` | init | `xcstrings` · `swift` |
+| `-f` `--force` | init | Overwrite an existing config |
+| `-c` `--config` | all | Config path |
+| `-n` `--dry-run` | generate | Show what would change, write nothing |
+| `-v` `--verbose` | generate, validate, drift | Show every item, not just the first few |
+| `--only` | generate | Override artifacts for this run |
+| `--strict` | validate, drift | Exit non-zero on warnings or drift |
 
 ### `ss validate`
 
@@ -344,20 +356,12 @@ language anyway. Add `"missing"` in CI if that trade is wrong for you, or use `-
 ### `ss auth setup` · `login` · `logout` · `status`
 
 `setup` creates the client file to fill in; `login` signs in to Google so private sheets can be read.
-| `-r` `--header-row` | init | Header row number, 1-based |
-| `-s` `--source-locale` | init | Source locale |
-| `--artifacts` | init | `xcstrings` · `swift` |
-| `-f` `--force` | init | Overwrite an existing config |
-| `-c` `--config` | all | Config path |
-| `-n` `--dry-run` | generate | Show what would change, write nothing |
-| `-v` `--verbose` | generate | Show every variable conversion |
-| `--only` | generate | Override artifacts for this run |
-
 ## Configuration
 
 ```json
 {
   "source":  { "path": "strings.csv", "headerRow": 2, "defaultLocale": "ko" },
+  "validation": { "failOn": ["collision"] },
   "columns": {
     "key": "키", "screen": "화면", "description": "설명",
     "languages": { "ko": "한국어", "en": "영어", "ja": "일본어" }
@@ -377,6 +381,9 @@ Paths are relative to the config file, so it works from anywhere in the repo.
 | Key | Values |
 |---|---|
 | `source.type` | `csv` · `google-sheets` |
+| `source.url` / `source.gid` | Google Sheets share URL, and a tab within it |
+| `source.tabs` | Tabs to join, by gid or name |
+| `validation.failOn` | `collision` · `missing` · `placeholder` · `other` (default `["collision"]`) |
 | `output.swift.namespace` | `keyPrefix` · `screen` · `none` |
 | `output.swift.bundle` | `main` · `module` (SPM resources) |
 | `placeholders.syntax` | `apple` · `brace` · `xml` |

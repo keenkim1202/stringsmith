@@ -248,8 +248,17 @@ ss preview            # 확인 앱에서 열기
 
 | 옵션 | 명령 | 뜻 |
 |---|---|---|
-| `-o` `--output` | init | 산출물 디렉터리 (기본 `Resources`) |
 | `--url` | init | Google Sheets 공유 URL |
+| `-o` `--output` | init | 산출물 디렉터리 (기본 `Resources`) |
+| `-r` `--header-row` | init | 헤더 행 번호 (1부터) |
+| `-s` `--source-locale` | init | 원문 로케일 |
+| `--artifacts` | init | `xcstrings` · `swift` |
+| `-f` `--force` | init | 기존 설정 덮어쓰기 |
+| `-c` `--config` | 전부 | 설정 파일 경로 |
+| `-n` `--dry-run` | generate | 무엇이 바뀔지만 보여주고 쓰지 않음 |
+| `-v` `--verbose` | generate·validate·drift | 앞부분만이 아니라 전부 출력 |
+| `--only` | generate | 이번 실행만 산출물 지정 |
+| `--strict` | validate·drift | 경고나 드리프트가 있으면 실패 |
 
 ### `ss validate`
 
@@ -336,20 +345,12 @@ ss drift              # 또는: ss drift path/to/Sources
 ### `ss auth setup` · `login` · `logout` · `status`
 
 `setup` 은 채워 넣을 클라이언트 파일을 만들고, `login` 은 Google 에 로그인합니다.
-| `-r` `--header-row` | init | 헤더 행 번호 (1부터) |
-| `-s` `--source-locale` | init | 원문 로케일 |
-| `--artifacts` | init | `xcstrings` · `swift` |
-| `-f` `--force` | init | 기존 설정 덮어쓰기 |
-| `-c` `--config` | 전부 | 설정 파일 경로 |
-| `-n` `--dry-run` | generate | 무엇이 바뀔지만 보여주고 쓰지 않음 |
-| `-v` `--verbose` | generate | 변수 변환 내역 전체 출력 |
-| `--only` | generate | 이번 실행만 산출물 지정 |
-
 ## 설정
 
 ```json
 {
   "source":  { "path": "strings.csv", "headerRow": 2, "defaultLocale": "ko" },
+  "validation": { "failOn": ["collision"] },
   "columns": {
     "key": "키", "screen": "화면", "description": "설명",
     "languages": { "ko": "한국어", "en": "영어", "ja": "일본어" }
@@ -369,6 +370,9 @@ ss drift              # 또는: ss drift path/to/Sources
 | 키 | 값 |
 |---|---|
 | `source.type` | `csv` · `google-sheets` |
+| `source.url` / `source.gid` | Google Sheets 공유 URL, 그 안의 탭 |
+| `source.tabs` | 이어 붙일 탭. gid 또는 이름 |
+| `validation.failOn` | `collision` · `missing` · `placeholder` · `other` (기본 `["collision"]`) |
 | `output.swift.namespace` | `keyPrefix` · `screen` · `none` |
 | `output.swift.bundle` | `main` · `module` (SPM 리소스) |
 | `placeholders.syntax` | `apple` · `brace` · `xml` |
