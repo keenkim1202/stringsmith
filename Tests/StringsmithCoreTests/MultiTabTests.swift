@@ -331,3 +331,67 @@ struct CacheParityTests {
         }
     }
 }
+
+// MARK: - 캐시가 출처를 잃지 않는가
+
+@Suite("오프라인에서도 어느 탭인지 안다")
+struct CachedOriginTests {
+
+    let url = "https://docs.google.com/spreadsheets/d/SHEET_ID/edit"
+
+    func tabs(_ byGid: [String: String]) -> SheetFetch {
+        { url in
+            let gid = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                .queryItems?.first { $0.name == "gid" }?.value ?? ""
+            return SheetResponse(
+                status: 200, mimeType: "text/csv", body: Data((byGid[gid] ?? "").utf8))
+        }
+    }
+
+    /// 오프라인일 때가 하필 사람이 시트를 열어 보기 어려운 순간이다. 오류가 `errors!2` 대신
+    /// 병합본 행 번호를 대면 어디를 고쳐야 할지 알 수 없다.
+    @Test("캐시로 돌아가도 탭 이름이 남는다")
+    func keepsOriginsThroughTheCache() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = directory.appendingPathComponent("sheet.csv").path
+
+        let sheets = tabs(["0": "key,ko\na,가", "77": "key,ko\nb,나"])
+        let online = GoogleSheetsSource(
+            url: url, tabs: ["0", "77"], cachePath: cache, fetch: sheets)
+        let fresh = try online.contents()
+        #expect(fresh.origin(at: 2) == SheetOrigin(tab: "77", row: 2))
+
+        let offline = GoogleSheetsSource(
+            url: url, tabs: ["0", "77"], cachePath: cache,
+            fetch: { _ in throw URLError(.notConnectedToInternet) })
+        let cached = try offline.contents()
+
+        #expect(cached.rows == fresh.rows)
+        #expect(cached.origins == fresh.origins)
+        #expect(cached.origin(at: 2) == SheetOrigin(tab: "77", row: 2))
+    }
+
+    /// 탭 하나로 되돌렸는데 예전 출처가 남아 있으면 엉뚱한 탭을 가리킨다.
+    @Test("탭이 하나가 되면 남아 있던 출처를 지운다")
+    func clearsStaleOrigins() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = directory.appendingPathComponent("sheet.csv").path
+
+        let sheets = tabs(["0": "key,ko\na,가", "77": "key,ko\nb,나"])
+        _ = try GoogleSheetsSource(
+            url: url, tabs: ["0", "77"], cachePath: cache, fetch: sheets).contents()
+        _ = try GoogleSheetsSource(
+            url: url, tabs: ["0"], cachePath: cache, fetch: sheets).contents()
+
+        let offline = GoogleSheetsSource(
+            url: url, tabs: ["0"], cachePath: cache,
+            fetch: { _ in throw URLError(.notConnectedToInternet) })
+        #expect(try offline.contents().origins.isEmpty)
+    }
+}
