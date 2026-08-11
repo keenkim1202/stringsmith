@@ -266,3 +266,132 @@ struct MergedRowOriginTests {
             configuration: configuration, baseDirectory: directory.path, source: source)
     }
 }
+
+// MARK: - 오프라인
+
+@Suite("캐시는 인증 여부와 무관하다")
+struct CacheParityTests {
+
+    let url = "https://docs.google.com/spreadsheets/d/SHEET_ID/edit"
+
+    func withCache(_ contents: String?, _ body: (String) throws -> Void) throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let path = directory.appendingPathComponent("sheet.csv").path
+        if let contents { try Data(contents.utf8).write(to: URL(fileURLWithPath: path)) }
+        try body(path)
+    }
+
+    var signedIn: InMemoryTokenStore {
+        InMemoryTokenStore(
+            tokens: OAuthTokens(
+                accessToken: "AT", refreshToken: "RT",
+                expiresAt: Date().addingTimeInterval(3600)))
+    }
+
+    /// 로그인해 두면 오프라인에서 빌드가 그냥 멈추던 문제. 인증 여부에 따라 견디는 힘이
+    /// 달라질 이유가 없다.
+    @Test("로그인한 상태에서도 캐시로 계속 간다")
+    func authenticatedPathFallsBack() throws {
+        try withCache("key,ko\ncached,캐시\n") { cache in
+            let source = GoogleSheetsSource(
+                url: url, cachePath: cache, tokens: signedIn,
+                fetch: { _ in throw URLError(.notConnectedToInternet) },
+                authorized: { _ in throw URLError(.notConnectedToInternet) })
+
+            let rows = try source.rows()
+            #expect(rows == [["key", "ko"], ["cached", "캐시"]])
+        }
+    }
+
+    /// 이어 붙이는 경우도 마찬가지다. 예전에는 조각이라 캐시하지 않았다.
+    @Test("여러 탭도 병합된 결과를 캐시한다")
+    func mergedResultIsCached() throws {
+        try withCache(nil) { cache in
+            let sheets: SheetFetch = { url in
+                let gid = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                    .queryItems?.first { $0.name == "gid" }?.value ?? ""
+                let body = gid == "0" ? "key,ko\na,가" : "key,ko\nb,나"
+                return SheetResponse(status: 200, mimeType: "text/csv", body: Data(body.utf8))
+            }
+            _ = try GoogleSheetsSource(
+                url: url, tabs: ["0", "77"], cachePath: cache, fetch: sheets).rows()
+
+            // 병합본이 통째로 남아야 다음에 오프라인이어도 쓸 수 있다.
+            let cached = try String(contentsOfFile: cache, encoding: .utf8)
+            #expect(CSVParser().parse(cached) == [["key", "ko"], ["a", "가"], ["b", "나"]])
+
+            let offline = GoogleSheetsSource(
+                url: url, tabs: ["0", "77"], cachePath: cache,
+                fetch: { _ in throw URLError(.networkConnectionLost) })
+            let recovered = try offline.rows()
+            #expect(recovered == [["key", "ko"], ["a", "가"], ["b", "나"]])
+        }
+    }
+}
+
+// MARK: - 캐시가 출처를 잃지 않는가
+
+@Suite("오프라인에서도 어느 탭인지 안다")
+struct CachedOriginTests {
+
+    let url = "https://docs.google.com/spreadsheets/d/SHEET_ID/edit"
+
+    func tabs(_ byGid: [String: String]) -> SheetFetch {
+        { url in
+            let gid = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                .queryItems?.first { $0.name == "gid" }?.value ?? ""
+            return SheetResponse(
+                status: 200, mimeType: "text/csv", body: Data((byGid[gid] ?? "").utf8))
+        }
+    }
+
+    /// 오프라인일 때가 하필 사람이 시트를 열어 보기 어려운 순간이다. 오류가 `errors!2` 대신
+    /// 병합본 행 번호를 대면 어디를 고쳐야 할지 알 수 없다.
+    @Test("캐시로 돌아가도 탭 이름이 남는다")
+    func keepsOriginsThroughTheCache() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = directory.appendingPathComponent("sheet.csv").path
+
+        let sheets = tabs(["0": "key,ko\na,가", "77": "key,ko\nb,나"])
+        let online = GoogleSheetsSource(
+            url: url, tabs: ["0", "77"], cachePath: cache, fetch: sheets)
+        let fresh = try online.contents()
+        #expect(fresh.origin(at: 2) == SheetOrigin(tab: "77", row: 2))
+
+        let offline = GoogleSheetsSource(
+            url: url, tabs: ["0", "77"], cachePath: cache,
+            fetch: { _ in throw URLError(.notConnectedToInternet) })
+        let cached = try offline.contents()
+
+        #expect(cached.rows == fresh.rows)
+        #expect(cached.origins == fresh.origins)
+        #expect(cached.origin(at: 2) == SheetOrigin(tab: "77", row: 2))
+    }
+
+    /// 탭 하나로 되돌렸는데 예전 출처가 남아 있으면 엉뚱한 탭을 가리킨다.
+    @Test("탭이 하나가 되면 남아 있던 출처를 지운다")
+    func clearsStaleOrigins() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = directory.appendingPathComponent("sheet.csv").path
+
+        let sheets = tabs(["0": "key,ko\na,가", "77": "key,ko\nb,나"])
+        _ = try GoogleSheetsSource(
+            url: url, tabs: ["0", "77"], cachePath: cache, fetch: sheets).contents()
+        _ = try GoogleSheetsSource(
+            url: url, tabs: ["0"], cachePath: cache, fetch: sheets).contents()
+
+        let offline = GoogleSheetsSource(
+            url: url, tabs: ["0"], cachePath: cache,
+            fetch: { _ in throw URLError(.notConnectedToInternet) })
+        #expect(try offline.contents().origins.isEmpty)
+    }
+}

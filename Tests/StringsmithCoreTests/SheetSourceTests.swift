@@ -112,15 +112,35 @@ struct GoogleSheetsSourceTests {
         let cache = directory.appendingPathComponent("sheet.csv").path
         try Data("key,ko\ncached,캐시\n".utf8).write(to: URL(fileURLWithPath: cache))
 
-        struct Offline: Error {}
-        let rows = try source({ _ in throw Offline() }, cachePath: cache).rows()
+        // 실제로 오프라인이면 URLSession 이 URLError 를 던진다.
+        let offline = URLError(.notConnectedToInternet)
+        let rows = try source({ _ in throw offline }, cachePath: cache).rows()
         #expect(rows == [["key", "ko"], ["cached", "캐시"]])
         try? FileManager.default.removeItem(at: directory)
     }
 
     @Test("캐시도 없으면 오류를 그대로 올린다")
     func failsWithoutCache() {
-        struct Offline: Error {}
-        #expect(throws: (any Error).self) { try source({ _ in throw Offline() }).rows() }
+        #expect(throws: (any Error).self) {
+            try source({ _ in throw URLError(.notConnectedToInternet) }).rows()
+        }
+    }
+
+    /// 시트가 비공개로 바뀐 걸 캐시로 덮으면, 지워진 시트를 몇 달째 쓰고 있어도 모른다.
+    @Test("접근이 막힌 것은 캐시로 덮지 않는다")
+    func doesNotMaskAccessFailures() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("stringsmith-cache-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let cache = directory.appendingPathComponent("sheet.csv").path
+        try Data("key,ko\ncached,캐시\n".utf8).write(to: URL(fileURLWithPath: cache))
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        // 구글이 응답은 했다 — 로그인 안내 페이지로.
+        let denied = SheetResponse(
+            status: 404, mimeType: "text/html", body: Data("<!doctype html>".utf8))
+        #expect(throws: StringsmithError.self) {
+            try source({ _ in denied }, cachePath: cache).rows()
+        }
     }
 }

@@ -35,7 +35,7 @@ public struct SheetContents: Sendable, Equatable {
 }
 
 /// 어느 탭 몇 행이었는지.
-public struct SheetOrigin: Sendable, Equatable {
+public struct SheetOrigin: Sendable, Equatable, Codable {
     public var tab: String
     /// 그 탭에서의 행 번호(1-based).
     public var row: Int
@@ -187,10 +187,34 @@ public struct GoogleSheetsSource: SheetSource {
     }
 
     public func contents() throws -> SheetContents {
-        guard tabs.count > 1 else {
-            return SheetContents(rows: try rows(tab: tabs.first ?? gid))
+        // 캐시는 모든 경로가 지나는 여기서 다룬다. 오프라인에서 견디는 힘이 로그인
+        // 여부에 따라 달라질 이유가 없다.
+        do {
+            let contents = tabs.count > 1
+                ? try merged()
+                : SheetContents(rows: try rows(tab: tabs.first ?? gid))
+            saveCache(contents)
+            return contents
+        } catch {
+            // 망이 안 될 때만 캐시로 간다. 시트가 비공개로 바뀐 것(403)까지 캐시로 덮으면
+            // 지워진 시트를 몇 달째 쓰고 있어도 아무도 모른다.
+            guard Self.isTransportFailure(error), let cached = loadCache() else { throw error }
+
+            FileHandle.standardError.write(
+                Data(
+                    tr(
+                        "⚠️ Could not reach the sheet — using the cached copy.\n",
+                        "⚠️ 시트를 가져오지 못해 캐시를 사용합니다.\n").utf8))
+            return cached
         }
-        return try merged()
+    }
+
+    /// 망 자체가 안 되는 경우인가.
+    ///
+    /// `URLError` 는 연결·DNS·시간 초과다. 우리가 던진 `.io` 는 구글이 응답은 했는데 그
+    /// 내용이 문제인 경우(403·404·로그인 페이지)라서 캐시로 덮으면 안 된다.
+    static func isTransportFailure(_ error: Error) -> Bool {
+        error is URLError
     }
 
     /// 탭 하나를 읽는다. 로그인되어 있으면 API 로, 아니면 공개 링크로.
@@ -267,13 +291,10 @@ public struct GoogleSheetsSource: SheetSource {
         let oauth = GoogleOAuth(fetch: authorized)
         let token = try oauth.validAccessToken(store: tokens)
         let api = GoogleSheetsAPI(accessToken: token, fetch: authorized)
-        let rows = try api.rows(spreadsheetID: ids.id, gid: tab ?? gid ?? ids.gid)
-        // 탭 하나만 읽을 때만 캐시한다. 이어 붙이는 경우는 조각을 남겨 봐야 못 쓴다.
-        if tabs.count <= 1 { saveCache(CSVParser.serialize(rows)) }
-        return rows
+        return try api.rows(spreadsheetID: ids.id, gid: tab ?? gid ?? ids.gid)
     }
 
-    /// 내려받아 캐시에 저장한다. 실패하면 캐시로 대체한다.
+    /// 공개 CSV 내보내기로 받는다. 캐시는 `contents()` 가 다룬다.
     func download(tab: String?) throws -> String {
         guard let ids = GoogleSheetsURL.identifiers(from: url) else {
             throw StringsmithError.invalidConfiguration(
@@ -301,23 +322,7 @@ public struct GoogleSheetsSource: SheetSource {
                 path: url, reason: tr("Could not build the export URL.", "내보내기 주소를 만들지 못했습니다."))
         }
 
-        do {
-            let response = try fetch(export)
-            let text = try validate(response, export: export)
-            if tabs.count <= 1 { saveCache(text) }
-            return text
-        } catch {
-            // 네트워크가 끊겼을 때 캐시로 계속 갈 수 있어야 한다. 비행기·사내망에서 빌드가 멈추면 곤란하다.
-            if let cached = loadCache() {
-                FileHandle.standardError.write(
-                    Data(
-                        (tr(
-                            "⚠️ Could not reach the sheet — using the cached copy.\n",
-                            "⚠️ 시트를 가져오지 못해 캐시를 사용합니다.\n")).utf8))
-                return cached
-            }
-            throw error
-        }
+        return try validate(try fetch(export), export: export)
     }
 
     /// 응답이 정말 CSV 인지 본다.
@@ -358,18 +363,39 @@ public struct GoogleSheetsSource: SheetSource {
 
     // MARK: 캐시
 
-    func loadCache() -> String? {
-        guard let cachePath, let data = FileManager.default.contents(atPath: cachePath) else {
-            return nil
-        }
-        return String(data: data, encoding: .utf8)
+    /// 캐시된 내용. 탭을 이어 붙인 것이면 출처까지 함께 돌려준다.
+    func loadCache() -> SheetContents? {
+        guard let cachePath, let data = FileManager.default.contents(atPath: cachePath),
+            let text = String(data: data, encoding: .utf8)
+        else { return nil }
+
+        // 출처가 없으면 행 번호만 남는다 — 오프라인에서 오류가 `errors!2` 대신 `4` 를
+        // 가리키게 되는데, 하필 그때가 사람이 시트를 열어 보기 어려운 순간이다.
+        let origins =
+            FileManager.default.contents(atPath: Self.originsPath(for: cachePath))
+            .flatMap { try? JSONDecoder().decode([SheetOrigin].self, from: $0) } ?? []
+
+        let rows = CSVParser().parse(text)
+        // 길이가 어긋나면 서로 다른 시점의 파일이다. 틀린 위치를 대느니 안 대는 게 낫다.
+        return SheetContents(rows: rows, origins: origins.count == rows.count ? origins : [])
     }
 
-    func saveCache(_ text: String) {
+    static func originsPath(for cachePath: String) -> String { cachePath + ".origins.json" }
+
+    func saveCache(_ contents: SheetContents) {
         guard let cachePath else { return }
         let directory = (cachePath as NSString).deletingLastPathComponent
         try? FileManager.default.createDirectory(
             atPath: directory, withIntermediateDirectories: true)
-        try? Data(text.utf8).write(to: URL(fileURLWithPath: cachePath))
+        try? Data(CSVParser.serialize(contents.rows).utf8)
+            .write(to: URL(fileURLWithPath: cachePath))
+
+        let sidecar = URL(fileURLWithPath: Self.originsPath(for: cachePath))
+        if contents.origins.isEmpty {
+            // 탭 하나짜리로 바뀌었는데 예전 출처가 남아 있으면 엉뚱한 탭을 가리킨다.
+            try? FileManager.default.removeItem(at: sidecar)
+        } else if let data = try? JSONEncoder().encode(contents.origins) {
+            try? data.write(to: sidecar)
+        }
     }
 }
