@@ -12,10 +12,17 @@ import tempfile
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SKIP = {"Show toolchain", "Build universal artifacts", "Check the artifacts actually work"}
+# `run:` 이 없는 스텝. 누락 검사에서 제외한다.
+USES_ONLY: set[str] = set()
 
 
 def steps(text):
-    """`- name: X` 와 그 뒤 `run: |` 블록을 뽑는다."""
+    """`- name: X` 와 그 뒤 `run:` 을 뽑는다.
+
+    블록(`run: |`)과 한 줄(`run: swift build`) 둘 다 읽는다. 한 줄짜리를 빠뜨리면
+    `swift build`·`swift test` 가 통째로 빠지고, 남은 통합 검사는 예전에 만들어 둔
+    바이너리로 통과해 버린다 — 아무것도 안 고쳤는데 초록이 나온다.
+    """
     out = []
     lines = text.split("\n")
     index = 0
@@ -26,9 +33,12 @@ def steps(text):
             continue
         name = match.group(1).strip()
         index += 1
-        # run: | 을 찾는다 (uses: 면 건너뛴다)
+
         while index < len(lines) and not re.match(r"      - name:", lines[index]):
-            if re.match(r"\s+run: \|", lines[index]):
+            block = re.match(r"\s+run: \|", lines[index])
+            single = re.match(r"\s+run: (\S.*)$", lines[index])
+
+            if block:
                 index += 1
                 body = []
                 while index < len(lines):
@@ -38,6 +48,10 @@ def steps(text):
                     body.append(line[10:] if len(line) > 10 else "")
                     index += 1
                 out.append((name, "\n".join(body)))
+                break
+            if single:
+                out.append((name, single.group(1).strip()))
+                index += 1
                 break
             index += 1
     return out
@@ -58,6 +72,16 @@ def main():
     environment = dict(os.environ, GITHUB_WORKSPACE=REPO, HOME=home)
     failed = []
     before = tracked_state()
+
+    # 파싱이 스텝을 조용히 빠뜨리면 "실패 없음" 이 거짓말이 된다 — 한 줄 `run:` 을 못 읽어
+    # `swift build` 와 `swift test` 가 통째로 빠진 적이 있다.
+    found = {name for name, _ in steps(text)}
+    declared = set(re.findall(r"^      - name: (.+)$", text, re.M))
+    # `uses:` 스텝은 run 이 없으니 셀 수 없다. 이름으로 걸러 낸다.
+    missing = {n.strip() for n in declared} - found - USES_ONLY
+    if missing:
+        print("⚠️ 워크플로에 있는데 읽지 못한 스텝:", ", ".join(sorted(missing)))
+        failed.append("(스텝 누락)")
 
     for name, body in steps(text):
         if name in SKIP:
