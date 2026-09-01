@@ -66,6 +66,14 @@ jobs:
           ### CLI
 
           ```bash
+          brew install keenkim1202/tap/stringsmith
+          ```
+
+          `stringsmith` 와 짧은 이름 `ss` 가 함께 깔립니다.
+
+          Homebrew 없이 받으실 경우:
+
+          ```bash
           tar -xzf stringsmith-macOS.tar.gz
           sudo mv stringsmith /usr/local/bin/
           sudo ln -sf /usr/local/bin/stringsmith /usr/local/bin/ss
@@ -86,3 +94,34 @@ jobs:
             --generate-notes \
             .build/dist/StringsmithPreview-macOS.zip \
             .build/dist/stringsmith-macOS.tar.gz
+
+      # tap 의 formula 를 새 버전으로 올린다. 손으로 하면 잊는 날이 오고, 그날부터
+      # brew 로 깐 사람만 옛 버전에 남는다. 릴리스가 만들어진 뒤에 돌리므로
+      # 이 단계가 실패해도 릴리스 자체는 남는다.
+      #
+      # GITHUB_TOKEN 은 다른 저장소에 쓸 수 없어 PAT(repo 스코프)이 필요하다.
+      - name: Bump the Homebrew formula
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # 실제로 올린 그 파일의 해시여야 한다. 다시 받아서 재면 어긋날 여지가 생긴다.
+          sha="$(shasum -a 256 .build/dist/stringsmith-macOS.tar.gz | cut -d' ' -f1)"
+
+          git clone --depth 1 \
+            "https://x-access-token:${TAP_TOKEN}@github.com/keenkim1202/homebrew-tap.git" tap
+          cd tap
+          sed -i '' \
+            -e "s|^  url .*|  url \"https://github.com/keenkim1202/stringsmith/releases/download/${TAG}/stringsmith-macOS.tar.gz\"|" \
+            -e "s|^  sha256 .*|  sha256 \"${sha}\"|" \
+            Formula/stringsmith.rb
+
+          # sed 가 아무것도 못 바꾸고 조용히 지나갔는지 본다.
+          grep -q "${TAG}/stringsmith-macOS.tar.gz" Formula/stringsmith.rb
+          grep -q "sha256 \"${sha}\"" Formula/stringsmith.rb
+
+          git config user.name "stringsmith release"
+          git config user.email "homurahomus@gmail.com"
+          git commit -qam "stringsmith ${TAG#v}"
+          git push

@@ -29,22 +29,30 @@ Text(L10n.Cart.greeting(customer))
 
 ## 설치
 
-[Releases](https://github.com/keenkim1202/stringsmith/releases) 에서 받습니다. 유니버설
-바이너리, macOS 13+:
+```bash
+brew install keenkim1202/tap/stringsmith
+```
+
+CLI 입니다. `stringsmith` 와 짧은 이름 `ss` 가 함께 깔립니다. 유니버설 바이너리, macOS 13+.
+
+확인 앱은 별도 파일이고 `ss preview` 를 쓸 때만 필요합니다.
+[Releases](https://github.com/keenkim1202/stringsmith/releases) 에서
+`StringsmithPreview-macOS.zip` 을 받으세요:
 
 ```bash
-# CLI — stringsmith-macOS.tar.gz
-tar -xzf stringsmith-macOS.tar.gz
-sudo mv stringsmith /usr/local/bin/ && sudo ln -sf /usr/local/bin/stringsmith /usr/local/bin/ss
-xattr -dr com.apple.quarantine /usr/local/bin/stringsmith
-
-# 확인 앱 — StringsmithPreview-macOS.zip, 별도 파일입니다.
-# `ss preview` 를 쓸 때만 필요합니다.
 unzip StringsmithPreview-macOS.zip -d ~/Applications
 xattr -dr com.apple.quarantine ~/Applications/StringsmithPreview.app
 ```
 
-서명되지 않은 빌드라서 `xattr` 줄이 필요합니다.
+서명되지 않은 앱이라서 `xattr` 줄이 필요합니다.
+
+Homebrew 없이 받으실 경우, 같은 페이지에서 `stringsmith-macOS.tar.gz` 를 받습니다:
+
+```bash
+tar -xzf stringsmith-macOS.tar.gz
+sudo mv stringsmith /usr/local/bin/ && sudo ln -sf /usr/local/bin/stringsmith /usr/local/bin/ss
+xattr -dr com.apple.quarantine /usr/local/bin/stringsmith
+```
 
 소스에서 빌드하려면 `make install`(CLI) 과 `make install-app`(확인 앱). `xattr` 이 필요 없습니다.
 
