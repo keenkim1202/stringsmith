@@ -69,6 +69,7 @@ ss generate    # 산출물 생성
 | 커맨드 | |
 |---|---|
 | `ss init [시트]` | 설정 초안. Google Sheets 는 `--url`, 출력 형식은 `--format` |
+| `ss import <경로>` | 이미 있는 `.xcstrings`·`.lproj` 파일에서 시트 만들기 |
 | `ss generate` | 산출물 생성. `-n` 은 미리보기, `--only` 는 골라 만들기 |
 | `ss validate` | 파일을 만들지 않고 시트만 검사. CI 는 `--strict` |
 | `ss drift` | 시트와 코드가 어긋난 키 찾기 |
@@ -76,6 +77,24 @@ ss generate    # 산출물 생성
 | `ss auth login` | 비공개 시트를 위한 Google 로그인 |
 
 플래그 전체는 `--help` 가 보여 줍니다. `ss` 와 `stringsmith` 는 같은 바이너리입니다.
+
+### 이미 파일이 있다면
+
+나머지 명령은 전부 시트가 있다고 가정합니다. 번역이 아직 `.xcstrings` 나 `.lproj` 에 있다면
+`import` 가 그 자리를 메웁니다.
+
+```bash
+ss import Sources/Resources        # 또는 path/to/Localizable.xcstrings
+ss init strings.csv
+```
+
+키마다 한 행, 언어마다 한 열이 되고 `/* 주석 */` 은 `description` 열로 옮겨집니다.
+복수형은 키 접미사(`cart.items.one`)로 들어갑니다. 시트가 복수형을 적는 방식입니다.
+
+변수는 `{arg1}`, `{arg2}` 로 돌아옵니다. 파일에는 변수의 자리만 있고 그것이 무엇이었는지는
+남아 있지 않으니, generate 전에 시트에서 이름을 고치세요. 복수형에서 수를 세는 변수만은
+`count` 라는 이름을 유지합니다. `.stringsdict` 는 그 자리에서 정수를 봐야 범주를 고를 수
+있기 때문입니다.
 
 ## 소스
 

@@ -4,6 +4,11 @@ English · [한국어](CHANGELOG.ko.md)
 
 ## Unreleased
 
+- **`ss import` reads what you already have.** Point it at a `.xcstrings` file or at the
+  directory holding your `.lproj` folders and it writes the sheet: one row per key, one column
+  per language, comments in a `description` column, plurals as key suffixes. Until now every
+  command assumed the sheet existed, which left an app with 300 strings copying them by hand.
+  Variables come back as `{arg1}`: the files record where one sits, never what it held.
 - **Homebrew.** `brew install keenkim1202/tap/stringsmith` installs the CLI and its `ss` alias,
   and `brew upgrade` keeps it current. No `xattr` step: the quarantine flag is only set on
   files a browser downloaded. The release workflow updates the formula, so the tap cannot fall

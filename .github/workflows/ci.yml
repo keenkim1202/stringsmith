@@ -167,7 +167,7 @@ jobs:
           ss="$GITHUB_WORKSPACE/.build/debug/stringsmith"
 
           # 문서에 적힌 커맨드·옵션이 실제로 있는가.
-          for c in init generate validate drift preview auth; do
+          for c in init import generate validate drift preview auth; do
             "$ss" "$c" --help >/dev/null
           done
           grep -q -- --url <<< "$("$ss" init --help)"
@@ -386,6 +386,44 @@ jobs:
           fi
 
       # 드리프트는 양방향을 다 봐야 하고, 생성된 파일에 속으면 안 된다.
+      # 가져오기의 진짜 시험은 되돌아오느냐다. 값·주석·복수형·변수 중 하나라도
+      # 어긋나면 다시 만든 산출물이 원본과 달라진다. DemoApp 의 생성물은 커밋되어
+      # 있으므로 그게 기준이 된다.
+      - name: Import round trip
+        run: |
+          set -euo pipefail
+          ss="$GITHUB_WORKSPACE/.build/debug/stringsmith"
+          orig="$GITHUB_WORKSPACE/Examples/DemoApp/Sources/DemoApp/Resources"
+          work="$(mktemp -d)"
+          cd "$work"
+
+          STRINGSMITH_LANG=en "$ss" import "$orig" --source ko
+          STRINGSMITH_LANG=en "$ss" init strings.csv --format strings >/dev/null
+          python3 - <<'PY'
+          import json
+          d = json.load(open('.stringsmith.json'))
+          d['output']['path'] = 'Resources'
+          d['output']['artifacts'] = ['strings', 'stringsdict']
+          json.dump(d, open('.stringsmith.json', 'w'))
+          PY
+          STRINGSMITH_LANG=en "$ss" generate >/dev/null
+
+          if ! diff -r "$orig" Resources; then
+            echo "::error::가져온 시트로 다시 만든 산출물이 원본과 다릅니다"
+            exit 1
+          fi
+
+          # 세는 변수의 이름이 바뀌면 `.stringsdict` 가 %@ 로 나가고, 그때부터 iOS 는
+          # 어느 복수 범주인지 고르지 못한다. 위 diff 로도 잡히지만 원인을 바로 짚어 준다.
+          grep -q "{count}" strings.csv
+
+          # 덮어쓰기는 물어보고 해야 한다.
+          code=0
+          STRINGSMITH_LANG=en "$ss" import "$orig" --source ko >/dev/null 2>&1 || code=$?
+          if [ "$code" != 2 ]; then
+            echo "::error::이미 있는 파일을 말없이 덮어썼습니다 (받은 값: $code)"; exit 1
+          fi
+
       - name: Drift detection
         run: |
           set -euo pipefail
