@@ -107,7 +107,8 @@ extension Stringsmith {
                                 "     → Change validation.failOn in the config to allow them.",
                                 "     → 설정의 validation.failOn 을 고치면 통과시킬 수 있습니다.")))
                 }
-                throw ExitCode.failure
+                // 3 = 시트 내용이 검증을 통과하지 못함. 설정 오류(2)와 구분한다.
+                throw ExitCode(3)
             }
             print("\n⚠️ " + summary + " " + tr("Nothing blocking.", "생성을 막지는 않습니다."))
         }

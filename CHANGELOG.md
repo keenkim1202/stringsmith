@@ -2,6 +2,15 @@
 
 English · [한국어](CHANGELOG.ko.md)
 
+## Unreleased
+
+- **Exit codes tell failures apart.** `2` means the config or the sheet could not be read, `3`
+  means the sheet was read and its contents failed validation. Everything used to exit `1`, so a
+  CI script could not tell "fix the config" from "fill in the sheet". The README has the table
+  and a CI recipe.
+- **The offline warning says how old the cache is** (`using the cached copy (12 days ago)`).
+  Without it a months-old cache builds quietly.
+
 ## 0.2.0
 
 Everything below is new since the first release. If you are on 0.1.0, the one behaviour change

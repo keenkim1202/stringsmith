@@ -200,11 +200,14 @@ public struct GoogleSheetsSource: SheetSource {
             // 지워진 시트를 몇 달째 쓰고 있어도 아무도 모른다.
             guard Self.isTransportFailure(error), let cached = loadCache() else { throw error }
 
+            // 캐시가 언제 것인지 함께 알린다. 나이를 모르면 몇 달 전 시트로 빌드하고도
+            // 아무도 눈치채지 못한다.
+            let age = cacheAge().map { " (\($0))" } ?? ""
             FileHandle.standardError.write(
                 Data(
                     tr(
-                        "⚠️ Could not reach the sheet — using the cached copy.\n",
-                        "⚠️ 시트를 가져오지 못해 캐시를 사용합니다.\n").utf8))
+                        "⚠️ Could not reach the sheet, using the cached copy\(age).\n",
+                        "⚠️ 시트를 가져오지 못해 캐시를 사용합니다\(age).\n").utf8))
             return cached
         }
     }
@@ -381,6 +384,22 @@ public struct GoogleSheetsSource: SheetSource {
     }
 
     static func originsPath(for cachePath: String) -> String { cachePath + ".origins.json" }
+
+    /// 캐시 파일이 언제 것인지. 파일이 없거나 시각을 읽지 못하면 nil.
+    func cacheAge() -> String? {
+        guard let cachePath,
+            let attributes = try? FileManager.default.attributesOfItem(atPath: cachePath),
+            let modified = attributes[.modificationDate] as? Date
+        else { return nil }
+        return Self.ageLabel(from: modified)
+    }
+
+    /// 날짜 대신 며칠 전인지로 적는다. 오래됐다는 사실만 눈에 들어오면 된다.
+    static func ageLabel(from modified: Date, now: Date = Date()) -> String {
+        let days = Calendar.current.dateComponents([.day], from: modified, to: now).day ?? 0
+        if days < 1 { return tr("today", "오늘") }
+        return tr("\(days) day(s) ago", "\(days)일 전")
+    }
 
     func saveCache(_ contents: SheetContents) {
         guard let cachePath else { return }

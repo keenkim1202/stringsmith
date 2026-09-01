@@ -234,3 +234,22 @@ extension StringsmithError: CustomStringConvertible {
         }
     }
 }
+
+extension StringsmithError {
+    /// CLI 가 이 오류로 끝날 때 쓸 종료 코드.
+    ///
+    /// 1 을 하나로 쓰면 CI 스크립트가 "설정이 틀렸다"와 "시트 내용이 틀렸다"를 구분하지
+    /// 못한다. 앞은 사람이 설정을 고쳐야 하고, 뒤는 시트를 채워야 한다. 대응이 다르니
+    /// 코드도 나눈다.
+    ///
+    /// - 2: 설정·입력을 읽지 못했다. 시트 내용을 보기 전에 막힌 경우다.
+    /// - 3: 시트는 읽었는데 내용이 검증을 통과하지 못했다.
+    public var exitCode: Int32 {
+        switch self {
+        case .invalidConfiguration, .io, .columnNotFound, .emptySheet, .headerRowOutOfRange:
+            return 2
+        case .duplicateKey, .emptySourceValue, .validationFailed:
+            return 3
+        }
+    }
+}

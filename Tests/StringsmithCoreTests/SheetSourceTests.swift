@@ -144,3 +144,22 @@ struct GoogleSheetsSourceTests {
         }
     }
 }
+
+@Suite("캐시 나이")
+struct CacheAgeTests {
+
+    /// 문구는 시스템 언어를 타므로 숫자만 본다. 깨지는 건 날짜 계산 쪽이다.
+    @Test("며칠 전인지 센다")
+    func countsDays() {
+        let now = Date()
+        let label = GoogleSheetsSource.ageLabel(from: now.addingTimeInterval(-3 * 86400), now: now)
+        #expect(label.contains("3"))
+    }
+
+    @Test("오늘 받은 캐시는 날수를 세지 않는다")
+    func todayHasNoCount() {
+        let now = Date()
+        let label = GoogleSheetsSource.ageLabel(from: now.addingTimeInterval(-60), now: now)
+        #expect(label.rangeOfCharacter(from: .decimalDigits) == nil)
+    }
+}

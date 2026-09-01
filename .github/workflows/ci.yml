@@ -110,8 +110,27 @@ jobs:
           if ! STRINGSMITH_LANG=en "$ss" validate >/dev/null; then
             echo "::error::경고만 있는데 validate 가 실패했습니다"; exit 1
           fi
-          if STRINGSMITH_LANG=en "$ss" validate --strict >/dev/null 2>&1; then
-            echo "::error::--strict 인데 경고를 통과시켰습니다"; exit 1
+          # 실패는 종료 코드로 구분된다. 3 = 시트 내용 문제, 2 = 설정·입력 문제.
+          # 남의 CI 스크립트가 이 값으로 분기하므로 바뀌면 그쪽이 깨진다.
+          code=0
+          STRINGSMITH_LANG=en "$ss" validate --strict >/dev/null 2>&1 || code=$?
+          if [ "$code" != 3 ]; then
+            echo "::error::--strict 실패는 3 이어야 합니다 (받은 값: $code)"; exit 1
+          fi
+
+          code=0
+          echo '{ broken' > .stringsmith.json
+          STRINGSMITH_LANG=en "$ss" validate >/dev/null 2>&1 || code=$?
+          if [ "$code" != 2 ]; then
+            echo "::error::설정 오류는 2 여야 합니다 (받은 값: $code)"; exit 1
+          fi
+
+          # 설정 파일을 못 찾은 것도 "입력을 읽지 못함" 이다. 이 경로는 CLIError 로 나가므로
+          # 분류에서 빠지기 쉽다.
+          code=0
+          (cd "$(mktemp -d)" && STRINGSMITH_LANG=en "$ss" validate >/dev/null 2>&1) || code=$?
+          if [ "$code" != 2 ]; then
+            echo "::error::설정을 못 찾으면 2 여야 합니다 (받은 값: $code)"; exit 1
           fi
 
       # 이름이 충돌하면 산출물이 나오면 안 된다. 나온 뒤에는 알아채기 어려운 문제다.
