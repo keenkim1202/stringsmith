@@ -44,6 +44,22 @@ struct Stringsmith: ParsableCommand {
         version: "0.2.0",
         subcommands: [Init.self, Generate.self, Validate.self, Drift.self, Preview.self, Auth.self]
     )
+
+    /// 오류 종류에 따라 종료 코드를 나눈다.
+    ///
+    /// ArgumentParser 의 기본 구현은 무엇이 틀렸든 1 로 끝낸다. 그러면 CI 스크립트가
+    /// 설정 문제와 시트 문제를 구분하지 못한다. 코드는 `StringsmithError.exitCode` 가 정한다.
+    static func main() {
+        do {
+            var command = try parseAsRoot()
+            try command.run()
+        } catch let error as StringsmithError {
+            FileHandle.standardError.write(Data("Error: \(error.description)\n".utf8))
+            Foundation.exit(error.exitCode)
+        } catch {
+            exit(withError: error)
+        }
+    }
 }
 
 // MARK: - init

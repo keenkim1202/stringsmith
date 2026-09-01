@@ -560,3 +560,28 @@ struct FailOnTests {
         #expect(decoded.failOn == [.collision])
     }
 }
+
+@Suite("종료 코드")
+struct ExitCodeTests {
+
+    /// CI 스크립트가 "설정을 고쳐라"와 "시트를 채워라"를 구분할 수 있어야 한다.
+    @Test("설정·입력 오류는 2")
+    func configurationErrorsAreTwo() {
+        #expect(StringsmithError.invalidConfiguration(path: "a", reason: "b").exitCode == 2)
+        #expect(StringsmithError.io(path: "a", reason: "b").exitCode == 2)
+        #expect(StringsmithError.emptySheet(path: "a").exitCode == 2)
+        #expect(StringsmithError.headerRowOutOfRange(requested: 9, totalRows: 2).exitCode == 2)
+        #expect(
+            StringsmithError.columnNotFound(
+                requested: "키", role: "key", available: [], suggestion: nil
+            ).exitCode == 2)
+    }
+
+    @Test("시트 내용 검증 실패는 3")
+    func validationErrorsAreThree() {
+        #expect(StringsmithError.validationFailed(issues: ["x"]).exitCode == 3)
+        #expect(StringsmithError.duplicateKey(key: "a", rows: ["2"]).exitCode == 3)
+        #expect(
+            StringsmithError.emptySourceValue(key: "a", locale: "ko", row: "2").exitCode == 3)
+    }
+}

@@ -98,7 +98,8 @@ extension Stringsmith {
                             "아무것도 바꾸지 않았습니다. --strict 로 실패 처리할 수 있습니다.")))
                 return
             }
-            throw ExitCode.failure
+            // 3 = 시트 내용이 검증을 통과하지 못함. 설정 오류(2)와 구분한다.
+            throw ExitCode(3)
         }
 
         // MARK: 출력 다듬기

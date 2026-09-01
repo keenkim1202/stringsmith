@@ -140,6 +140,26 @@ not — a sheet someone is still filling in always has gaps.
 `ss drift` covers what compiling cannot: keys nobody uses, and keys called by string
 (`NSLocalizedString`) that the sheet lacks.
 
+### CI
+
+`validate` checks the sheet. `git diff` catches the PR that edited the sheet and forgot to
+regenerate. Generated files are committed, so both belong in the same job.
+
+```yaml
+- run: ss validate --strict
+- run: ss generate
+- run: git diff --exit-code    # sheet edited, artifacts not regenerated
+```
+
+Failures are told apart by exit code, so a script can branch on them:
+
+| | |
+|---|---|
+| `0` | passed |
+| `2` | the config or the sheet could not be read. Someone has to fix the config. |
+| `3` | the sheet was read, its contents failed validation. Someone has to fix the sheet. |
+| `64` | wrong command or flag |
+
 ## Preview app
 
 A macOS app that reads the sheet directly, no `generate` first. All languages side by side,
