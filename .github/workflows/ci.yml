@@ -125,6 +125,14 @@ jobs:
             echo "::error::설정 오류는 2 여야 합니다 (받은 값: $code)"; exit 1
           fi
 
+          # 설정 파일을 못 찾은 것도 "입력을 읽지 못함" 이다. 이 경로는 CLIError 로 나가므로
+          # 분류에서 빠지기 쉽다.
+          code=0
+          (cd "$(mktemp -d)" && STRINGSMITH_LANG=en "$ss" validate >/dev/null 2>&1) || code=$?
+          if [ "$code" != 2 ]; then
+            echo "::error::설정을 못 찾으면 2 여야 합니다 (받은 값: $code)"; exit 1
+          fi
+
       # 이름이 충돌하면 산출물이 나오면 안 된다. 나온 뒤에는 알아채기 어려운 문제다.
       - name: Name collisions block generate
         run: |
