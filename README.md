@@ -70,6 +70,7 @@ like git.
 | Command | |
 |---|---|
 | `ss init [sheet]` | Draft a config. `--url` for Google Sheets, `--format` to pick an output format |
+| `ss import <path>` | Draft a sheet from `.xcstrings` or `.lproj` files you already have |
 | `ss generate` | Write the artifacts. `-n` to preview, `--only` to narrow |
 | `ss validate` | Check the sheet, write nothing. `--strict` for CI |
 | `ss drift` | Find keys the sheet and the code disagree on |
@@ -77,6 +78,23 @@ like git.
 | `ss auth login` | Sign in to Google for private sheets |
 
 `--help` lists every flag. `ss` and `stringsmith` are the same binary.
+
+### Coming from files you already have
+
+Every other command assumes the sheet exists. If your translations are still in `.xcstrings` or
+`.lproj` files, that is what `import` is for:
+
+```bash
+ss import Sources/Resources        # or path/to/Localizable.xcstrings
+ss init strings.csv
+```
+
+One row per key, one column per language, and `/* comments */` become a `description` column.
+Plurals arrive as key suffixes (`cart.items.one`), which is how the sheet writes them.
+
+Variables come back as `{arg1}`, `{arg2}`. The files record where a variable sits, never what it
+held, so rename them in the sheet before you generate. The counting variable in a plural keeps
+the name `count`: `.stringsdict` has to see an integer there to pick a category at all.
 
 ## Sources
 

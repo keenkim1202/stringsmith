@@ -18,6 +18,7 @@ struct Stringsmith: ParsableCommand {
         discussion: tr(
             """
             Getting started:
+              stringsmith import <dir>  draft a sheet from files you already have
               stringsmith init          write a config
               stringsmith generate      write the artifacts
               stringsmith preview       open the review app
@@ -31,6 +32,7 @@ struct Stringsmith: ParsableCommand {
             """,
             """
             시작하기:
+              stringsmith import <dir>  이미 있는 파일에서 시트를 만듭니다
               stringsmith init          설정을 만듭니다
               stringsmith generate      산출물을 만듭니다
               stringsmith preview       번역 확인 앱을 띄웁니다
@@ -42,7 +44,10 @@ struct Stringsmith: ParsableCommand {
             입력은 CSV/TSV 파일 또는 Google Sheets URL 입니다. XLSX 는 이후 버전입니다.
             """),
         version: "0.2.0",
-        subcommands: [Init.self, Generate.self, Validate.self, Drift.self, Preview.self, Auth.self]
+        subcommands: [
+            Init.self, Import.self, Generate.self, Validate.self, Drift.self,
+            Preview.self, Auth.self,
+        ]
     )
 
     /// 오류 종류에 따라 종료 코드를 나눈다.
