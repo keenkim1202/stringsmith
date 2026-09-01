@@ -4,6 +4,10 @@ English · [한국어](CHANGELOG.ko.md)
 
 ## Unreleased
 
+- **Homebrew.** `brew install keenkim1202/tap/stringsmith` installs the CLI and its `ss` alias,
+  and `brew upgrade` keeps it current. No `xattr` step: the quarantine flag is only set on
+  files a browser downloaded. The release workflow updates the formula, so the tap cannot fall
+  behind a release.
 - **Exit codes tell failures apart.** `2` means the config or the sheet could not be read, `3`
   means the sheet was read and its contents failed validation. Everything used to exit `1`, so a
   CI script could not tell "fix the config" from "fill in the sheet". The README has the table

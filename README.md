@@ -29,22 +29,30 @@ site stops compiling — that is the whole point.
 
 ## Install
 
-Download from [Releases](https://github.com/keenkim1202/stringsmith/releases) — universal
-binaries, macOS 13+:
+```bash
+brew install keenkim1202/tap/stringsmith
+```
+
+That is the CLI: `stringsmith`, and `ss` as a short alias. Universal binary, macOS 13+.
+
+The review app is a separate download and only `ss preview` needs it. Take
+`StringsmithPreview-macOS.zip` from
+[Releases](https://github.com/keenkim1202/stringsmith/releases):
 
 ```bash
-# CLI — stringsmith-macOS.tar.gz
-tar -xzf stringsmith-macOS.tar.gz
-sudo mv stringsmith /usr/local/bin/ && sudo ln -sf /usr/local/bin/stringsmith /usr/local/bin/ss
-xattr -dr com.apple.quarantine /usr/local/bin/stringsmith
-
-# Review app — StringsmithPreview-macOS.zip, a separate download.
-# Only needed for `ss preview`.
 unzip StringsmithPreview-macOS.zip -d ~/Applications
 xattr -dr com.apple.quarantine ~/Applications/StringsmithPreview.app
 ```
 
-The builds are unsigned, which is what the `xattr` lines clear.
+The app is unsigned, which is what the `xattr` line clears.
+
+Without Homebrew, take `stringsmith-macOS.tar.gz` from the same page:
+
+```bash
+tar -xzf stringsmith-macOS.tar.gz
+sudo mv stringsmith /usr/local/bin/ && sudo ln -sf /usr/local/bin/stringsmith /usr/local/bin/ss
+xattr -dr com.apple.quarantine /usr/local/bin/stringsmith
+```
 
 Or from source: `make install` (CLI) and `make install-app` (the review app). No `xattr` needed.
 

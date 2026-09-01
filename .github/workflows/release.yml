@@ -15,6 +15,8 @@ permissions:
 jobs:
   release:
     runs-on: macos-15
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
 
@@ -66,6 +68,14 @@ jobs:
           ### CLI
 
           ```bash
+          brew install keenkim1202/tap/stringsmith
+          ```
+
+          `stringsmith` 와 짧은 이름 `ss` 가 함께 깔립니다.
+
+          Homebrew 없이 받으실 경우:
+
+          ```bash
           tar -xzf stringsmith-macOS.tar.gz
           sudo mv stringsmith /usr/local/bin/
           sudo ln -sf /usr/local/bin/stringsmith /usr/local/bin/ss
@@ -86,3 +96,55 @@ jobs:
             --generate-notes \
             .build/dist/StringsmithPreview-macOS.zip \
             .build/dist/stringsmith-macOS.tar.gz
+
+
+  # 릴리스와 잡을 나눈 건 따로 다시 돌릴 수 있어야 하기 때문이다. 한 잡에 두면 bump 가
+  # 실패했을 때 재실행이 `gh release create` 부터 시작하는데, 그 태그의 릴리스는 이미
+  # 있으므로 거기서 막혀 bump 에는 영영 닿지 못한다.
+  #
+  # GITHUB_TOKEN 은 다른 저장소에 쓸 수 없어 PAT(repo 스코프)이 필요하다.
+  tap:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Bump the Homebrew formula
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # 실제로 배포된 그 파일의 해시여야 한다. 따로 빌드해서 재면 어긋날 여지가 생긴다.
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p stringsmith-macOS.tar.gz
+          export SHA="$(sha256sum stringsmith-macOS.tar.gz | cut -d' ' -f1)"
+
+          git clone --depth 1 \
+            "https://x-access-token:${TAP_TOKEN}@github.com/keenkim1202/homebrew-tap.git" tap
+
+          python3 - <<'PY'
+          import os, pathlib, re
+
+          tag, sha = os.environ["TAG"], os.environ["SHA"]
+          path = pathlib.Path("tap/Formula/stringsmith.rb")
+          text = path.read_text()
+          url = (
+              "  url \"https://github.com/keenkim1202/stringsmith/releases"
+              f"/download/{tag}/stringsmith-macOS.tar.gz\""
+          )
+          text, urls = re.subn(r"^  url .*$", url, text, flags=re.M)
+          text, hashes = re.subn(r"^  sha256 .*$", f'  sha256 "{sha}"', text, flags=re.M)
+          # 형식이 바뀌어 아무것도 못 바꾸고 지나가면 옛 버전이 그대로 남는다.
+          assert urls == 1 and hashes == 1, f"치환 실패: url={urls} sha256={hashes}"
+          path.write_text(text)
+          PY
+
+          cd tap
+          # 다시 돌렸을 때 조용히 끝나야 한다. 커밋할 게 없으면 git 이 실패로 끝낸다.
+          if git diff --quiet; then
+            echo "formula 가 이미 $TAG 입니다."
+            exit 0
+          fi
+          git config user.name "stringsmith release"
+          git config user.email "homurahomus@gmail.com"
+          git commit -qam "stringsmith ${TAG#v}"
+          git push
