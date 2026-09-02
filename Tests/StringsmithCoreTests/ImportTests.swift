@@ -147,6 +147,35 @@ struct ImportCatalogTests {
         #expect(result.skipped.contains { $0.contains("found") })
     }
 
+    /// 키가 아무 말 없이 사라지는 게 제일 나쁘다. 없어진 걸 아무도 모른다.
+    @Test("읽을 수 없는 모양도 조용히 버리지 않는다")
+    func unreadableShapesAreNamed() throws {
+        let path = try Self.write("""
+            {"sourceLanguage":"en","version":"1.0","strings":{
+              "ok":{"localizations":{"en":{"stringUnit":{"state":"translated","value":"OK"}}}},
+              "hollow":{"localizations":{"en":{}}},
+              "nested":{"localizations":{"en":{"variations":{"plural":{
+                "one":{"variations":{"device":{
+                  "iphone":{"stringUnit":{"state":"translated","value":"T"}}}}}}}}}}}}
+            """)
+        let result = try LocalizationImport.read(path: path)
+        #expect(result.rows == [["key", "en"], ["ok", "OK"]])
+        // localizations 가 비어 있지 않다는 이유로 넘어가던 자리다.
+        #expect(result.skipped.contains { $0.hasPrefix("hollow:") })
+        #expect(result.skipped.contains { $0.hasPrefix("nested:") })
+    }
+
+    @Test("이미 짚은 키를 두 번 말하지 않는다")
+    func reportsEachKeyOnce() throws {
+        let path = try Self.write("""
+            {"sourceLanguage":"en","version":"1.0","strings":{
+              "welcome":{"localizations":{"en":{"variations":{"device":{
+                "iphone":{"stringUnit":{"state":"translated","value":"Tap"}}}}}}}}}
+            """)
+        let result = try LocalizationImport.read(path: path)
+        #expect(result.skipped.count == 1)
+    }
+
     @Test("String Catalog 이 아니면 그렇게 말한다")
     func rejectsNonCatalog() throws {
         let path = try Self.write("{\"nope\":1}")

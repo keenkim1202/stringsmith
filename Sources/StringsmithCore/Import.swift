@@ -90,6 +90,8 @@ public enum LocalizationImport {
         for (key, entry) in document.strings {
             var plain: [String: String] = [:]
             var byCategory: [PluralCategory: [String: String]] = [:]
+            // 이 키에 대해 이미 무언가 짚었는가. 같은 사실을 두 번 말하지 않으려고 본다.
+            var noted = false
 
             for (locale, localization) in entry.localizations ?? [:] {
                 if let unit = localization.stringUnit {
@@ -101,6 +103,7 @@ public enum LocalizationImport {
                             skipped.append(tr(
                                 "\(key) [\(locale)]: unknown plural category \"\(name)\"",
                                 "\(key) [\(locale)]: 모르는 복수 범주 \"\(name)\""))
+                            noted = true
                             continue
                         }
                         guard let value = nested.stringUnit?.value else { continue }
@@ -111,6 +114,7 @@ public enum LocalizationImport {
                     skipped.append(tr(
                         "\(key) [\(locale)]: a variation this tool does not read (device?)",
                         "\(key) [\(locale)]: 이 도구가 읽지 않는 변형입니다 (기기별?)"))
+                    noted = true
                 }
             }
 
@@ -124,9 +128,18 @@ public enum LocalizationImport {
                         key: "\(key).\(category.rawValue)", comment: entry.comment,
                         values: values, isPlural: true))
             }
-            // 읽지 못한 변형을 이미 짚었으면 여기서 또 말하지 않는다. 같은 사실이다.
-            if plain.isEmpty, byCategory.isEmpty, entry.localizations?.isEmpty ?? true {
-                skipped.append(tr("\(key): no translations", "\(key): 번역이 없습니다"))
+            // 이미 짚었으면 또 말하지 않는다. 같은 사실이다. 다만 **아무 말도 없이**
+            // 키가 사라지는 일은 없어야 한다. 없어진 걸 아무도 모르는 게 제일 나쁘다.
+            //
+            // localizations 가 비었는지로 판단하면 안 된다. 값이 들어 있는데 우리가 못 읽는
+            // 모양(빈 로케일 객체, 범주 안에 또 변형이 든 것)이 그 검사를 통과해 버린다.
+            if plain.isEmpty, byCategory.isEmpty, !noted {
+                skipped.append(
+                    entry.localizations?.isEmpty ?? true
+                        ? tr("\(key): no translations", "\(key): 번역이 없습니다")
+                        : tr(
+                            "\(key): nothing here this tool could read",
+                            "\(key): 읽을 수 있는 내용이 없습니다"))
             }
         }
 
