@@ -116,6 +116,37 @@ struct ImportCatalogTests {
         #expect(result.skipped.contains { $0.contains("manyish") })
     }
 
+    /// 카탈로그는 기기별 변형도 variations 에 담는다. 필수 필드로 두면 그런 키 하나가
+    /// 파일 전체의 디코딩을 막아, 나머지 299개까지 못 읽게 된다.
+    @Test("기기별 변형은 그 키만 건너뛴다")
+    func deviceVariationSkipsOnlyThatKey() throws {
+        let path = try Self.write("""
+            {"sourceLanguage":"en","version":"1.0","strings":{
+              "ok":{"localizations":{"en":{"stringUnit":{"state":"translated","value":"OK"}}}},
+              "welcome":{"localizations":{"en":{"variations":{"device":{
+                "iphone":{"stringUnit":{"state":"translated","value":"Tap"}}}}}}}}}
+            """)
+        let result = try LocalizationImport.read(path: path)
+        #expect(result.rows == [["key", "en"], ["ok", "OK"]])
+        #expect(result.skipped.count == 1)
+        #expect(result.skipped[0].contains("welcome"))
+    }
+
+    /// 파서가 `%#` 를 플래그로 읽어 `{arg1}count@` 같은 그럴듯한 쓰레기를 만든다.
+    /// 조용히 틀린 값이 시트에 남는 게 이 도구에서 제일 나쁜 결과다.
+    @Test("치환은 망가진 값을 만드느니 건너뛴다")
+    func substitutionsAreSkipped() throws {
+        let path = try Self.write("""
+            {"sourceLanguage":"en","version":"1.0","strings":{
+              "ok":{"localizations":{"en":{"stringUnit":{"state":"translated","value":"OK"}}}},
+              "found":{"localizations":{"en":{"stringUnit":{
+                "state":"translated","value":"Found %#@count@ in %#@places@"}}}}}}
+            """)
+        let result = try LocalizationImport.read(path: path)
+        #expect(result.rows == [["key", "en"], ["ok", "OK"]])
+        #expect(result.skipped.contains { $0.contains("found") })
+    }
+
     @Test("String Catalog 이 아니면 그렇게 말한다")
     func rejectsNonCatalog() throws {
         let path = try Self.write("{\"nope\":1}")
@@ -223,6 +254,28 @@ struct ImportLprojTests {
         ])
         let result = try LocalizationImport.read(path: root)
         #expect(result.skipped.contains { $0.contains("both") })
+    }
+
+    /// 말없이 절반만 옮기면 없어진 걸 아무도 모른다.
+    @Test("읽지 않은 테이블은 이름을 대고 알린다")
+    func namesTheTablesItSkipped() throws {
+        let root = try Self.makeTree([
+            "en.lproj/Localizable.strings": "\"a\" = \"A\";\n",
+            "en.lproj/Errors.strings": "\"e\" = \"E\";\n",
+        ])
+        let result = try LocalizationImport.read(path: root)
+        #expect(result.rows == [["key", "en"], ["a", "A"]])
+        #expect(result.skipped.contains { $0.contains("Errors.strings") })
+    }
+
+    @Test("--table 로 다른 테이블을 읽는다")
+    func readsAnotherTable() throws {
+        let root = try Self.makeTree([
+            "en.lproj/Localizable.strings": "\"a\" = \"A\";\n",
+            "en.lproj/Errors.strings": "\"e\" = \"E\";\n",
+        ])
+        let result = try LocalizationImport.read(path: root, table: "Errors")
+        #expect(result.rows == [["key", "en"], ["e", "E"]])
     }
 
     @Test("읽을 게 없으면 그렇게 말한다")

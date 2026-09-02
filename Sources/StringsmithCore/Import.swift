@@ -35,7 +35,10 @@ public enum LocalizationImport {
     /// - Parameters:
     ///   - path: `.xcstrings` 파일, 또는 `.lproj` 들을 담은 디렉터리.
     ///   - sourceLocale: 원문 로케일. `.xcstrings` 는 파일이 알고 있으므로 무시한다.
-    public static func read(path: String, sourceLocale: String? = nil) throws -> Result {
+    ///   - table: 읽을 `.strings` 테이블 이름. `.xcstrings` 에는 해당하지 않는다.
+    public static func read(
+        path: String, sourceLocale: String? = nil, table: String = defaultTable
+    ) throws -> Result {
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) else {
             throw StringsmithError.io(
@@ -47,7 +50,7 @@ public enum LocalizationImport {
         }
         let contents = (try? FileManager.default.contentsOfDirectory(atPath: path)) ?? []
         if contents.contains(where: { $0.hasSuffix(".lproj") }) {
-            return try importLproj(in: path, sourceLocale: sourceLocale)
+            return try importLproj(in: path, sourceLocale: sourceLocale, table: table)
         }
         let catalogs = contents.filter { $0.hasSuffix(".xcstrings") }
         if catalogs.count == 1 {
@@ -91,8 +94,8 @@ public enum LocalizationImport {
             for (locale, localization) in entry.localizations ?? [:] {
                 if let unit = localization.stringUnit {
                     plain[locale] = unit.value
-                } else if let variations = localization.variations {
-                    for (name, nested) in variations.plural {
+                } else if let plural = localization.variations?.plural {
+                    for (name, nested) in plural {
                         guard let category = PluralCategory(rawValue: name) else {
                             // CLDR 밖의 범주는 시트의 키 접미사로 적을 수 없다.
                             skipped.append(tr(
@@ -103,6 +106,11 @@ public enum LocalizationImport {
                         guard let value = nested.stringUnit?.value else { continue }
                         byCategory[category, default: [:]][locale] = value
                     }
+                } else if localization.variations != nil {
+                    // 기기별 변형(`device`). 시트는 한 키에 값 하나라 담을 자리가 없다.
+                    skipped.append(tr(
+                        "\(key) [\(locale)]: a variation this tool does not read (device?)",
+                        "\(key) [\(locale)]: 이 도구가 읽지 않는 변형입니다 (기기별?)"))
                 }
             }
 
@@ -116,7 +124,8 @@ public enum LocalizationImport {
                         key: "\(key).\(category.rawValue)", comment: entry.comment,
                         values: values, isPlural: true))
             }
-            if plain.isEmpty, byCategory.isEmpty {
+            // 읽지 못한 변형을 이미 짚었으면 여기서 또 말하지 않는다. 같은 사실이다.
+            if plain.isEmpty, byCategory.isEmpty, entry.localizations?.isEmpty ?? true {
                 skipped.append(tr("\(key): no translations", "\(key): 번역이 없습니다"))
             }
         }
@@ -126,7 +135,9 @@ public enum LocalizationImport {
 
     // MARK: - .lproj
 
-    static func importLproj(in directory: String, sourceLocale: String?) throws -> Result {
+    static func importLproj(
+        in directory: String, sourceLocale: String?, table: String = defaultTable
+    ) throws -> Result {
         let names = ((try? FileManager.default.contentsOfDirectory(atPath: directory)) ?? [])
             .filter { $0.hasSuffix(".lproj") }
             .sorted()
@@ -134,6 +145,8 @@ public enum LocalizationImport {
         var byKey: [String: Item] = [:]
         var skipped: [String] = []
         var locales: [String] = []
+        // 옮기지 않은 테이블. 로케일마다 같은 이름이 반복되므로 한 번만 알린다.
+        var otherTables: Set<String> = []
 
         for name in names {
             let locale = String(name.dropLast(".lproj".count))
@@ -145,13 +158,20 @@ public enum LocalizationImport {
             locales.append(locale)
             let folder = (directory as NSString).appendingPathComponent(name)
 
-            let comments = readComments(in: folder)
-            for (key, value) in readStrings(in: folder, skipped: &skipped) {
+            for name in (try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []
+            where name.hasSuffix(".strings") && name != "\(table).strings" {
+                otherTables.insert(String(name.dropLast(".strings".count)))
+            }
+
+            let comments = readComments(in: folder, table: table)
+            for (key, value) in readStrings(in: folder, table: table, skipped: &skipped) {
                 byKey[key, default: Item(key: key, comment: nil, values: [:])].values[locale] = value
                 // 주석은 로케일마다 같은 내용이 반복된다. 먼저 본 것을 쓴다.
                 if byKey[key]?.comment == nil { byKey[key]?.comment = comments[key] }
             }
-            for (key, value) in readStringsdict(in: folder, locale: locale, skipped: &skipped) {
+            for (key, value) in readStringsdict(
+                in: folder, table: table, locale: locale, skipped: &skipped)
+            {
                 byKey[key, default: Item(key: key, comment: nil, values: [:], isPlural: true)]
                     .values[locale] = value
             }
@@ -163,14 +183,23 @@ public enum LocalizationImport {
                 reason: tr("No .lproj directories to read.", "읽을 .lproj 디렉터리가 없습니다."))
         }
 
+        // 말없이 절반만 옮기면 없어진 걸 아무도 모른다. 이름을 대고 --table 을 알린다.
+        for name in otherTables.sorted() {
+            skipped.append(tr(
+                "\(name).strings: another table, not read (--table \(name) reads it instead)",
+                "\(name).strings: 다른 테이블이라 읽지 않았습니다 (--table \(name) 로 읽습니다)"))
+        }
+
         // 원문 로케일은 파일이 말해 주지 않는다. 지정이 없으면 en, 그것도 없으면 첫 번째.
         let source = sourceLocale ?? (locales.contains("en") ? "en" : locales.sorted()[0])
         return assemble(Array(byKey.values), sourceLocale: source, skipped: skipped)
     }
 
-    /// `Localizable.strings`. 구식 property list 라서 Foundation 이 그대로 읽는다.
-    static func readStrings(in folder: String, skipped: inout [String]) -> [String: String] {
-        let path = (folder as NSString).appendingPathComponent("Localizable.strings")
+    /// `<table>.strings`. 구식 property list 라서 Foundation 이 그대로 읽는다.
+    static func readStrings(
+        in folder: String, table: String, skipped: inout [String]
+    ) -> [String: String] {
+        let path = (folder as NSString).appendingPathComponent("\(table).strings")
         guard let data = FileManager.default.contents(atPath: path) else { return [:] }
         guard
             let plist = try? PropertyListSerialization.propertyList(
@@ -187,8 +216,8 @@ public enum LocalizationImport {
     ///
     /// 값은 `PropertyListSerialization` 이 읽는다. 그쪽은 주석을 버리므로 원문을 한 번 더
     /// 훑는다. 못 찾으면 주석이 없는 것으로 둔다. 값을 잘못 읽을 여지는 없다.
-    static func readComments(in folder: String) -> [String: String] {
-        let path = (folder as NSString).appendingPathComponent("Localizable.strings")
+    static func readComments(in folder: String, table: String) -> [String: String] {
+        let path = (folder as NSString).appendingPathComponent("\(table).strings")
         guard let data = FileManager.default.contents(atPath: path),
             let text = String(data: data, encoding: .utf8)
         else { return [:] }
@@ -217,11 +246,11 @@ public enum LocalizationImport {
             .replacingOccurrences(of: "\\\\", with: "\\")
     }
 
-    /// `Localizable.stringsdict`. 범주 하나가 시트의 한 행(`key.one`)이 된다.
+    /// `<table>.stringsdict`. 범주 하나가 시트의 한 행(`key.one`)이 된다.
     static func readStringsdict(
-        in folder: String, locale: String, skipped: inout [String]
+        in folder: String, table: String, locale: String, skipped: inout [String]
     ) -> [String: String] {
-        let path = (folder as NSString).appendingPathComponent("Localizable.stringsdict")
+        let path = (folder as NSString).appendingPathComponent("\(table).stringsdict")
         guard let data = FileManager.default.contents(atPath: path) else { return [:] }
         guard
             let plist = try? PropertyListSerialization.propertyList(
@@ -278,8 +307,18 @@ public enum LocalizationImport {
     static func assemble(_ items: [Item], sourceLocale: String, skipped: [String]) -> Result {
         var needsNaming: [String] = []
         var converted: [Item] = []
+        var skipped = skipped
 
         for var item in items {
+            // 카탈로그의 named substitution(`%#@count@`). 시트는 한 칸에 문자열 하나라
+            // 이 구조를 담을 수 없다. 그냥 두면 파서가 `%#` 를 플래그로 읽어
+            // `{arg1}count@` 같은 그럴듯한 쓰레기를 만들고, 그건 아무도 못 찾는다.
+            if item.values.values.contains(where: { $0.contains("%#@") }) {
+                skipped.append(tr(
+                    "\(item.key): uses %#@…@ substitutions, which a sheet cannot hold",
+                    "\(item.key): %#@…@ 치환을 씁니다. 시트로는 담을 수 없는 구조입니다"))
+                continue
+            }
             var touched = false
             for (locale, value) in item.values {
                 let (rewritten, hadPlaceholder) = convertPlaceholders(
@@ -363,6 +402,9 @@ public enum LocalizationImport {
 
     /// 수를 세는 변수의 이름. `output.pluralVariable` 의 기본값과 같아야 한다.
     static let countVariable = "count"
+
+    /// 기본 테이블 이름. `output.tableName` 의 기본값과 같다.
+    public static let defaultTable = "Localizable"
 
     /// 원문에 있던 중괄호가 변수로 읽히지 않게 한다.
     static func escaped(_ text: String) -> String {

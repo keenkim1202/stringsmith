@@ -2,6 +2,14 @@
 
 English · [한국어](CHANGELOG.ko.md)
 
+## Unreleased
+
+- **`ss import` no longer chokes on files it did not write.** A device variation used to fail
+  the whole catalog, since one unreadable key stopped every other key from being read.
+  `%#@…@` substitutions used to come out as `{arg1}count@`, which looks plausible enough to
+  survive review. Both are now named and skipped. `.strings` tables other than `Localizable`
+  are named too, and `--table` reads one of them.
+
 ## 0.3.0
 
 The one behaviour change to know about: **failures no longer all exit `1`.** A CI script that
