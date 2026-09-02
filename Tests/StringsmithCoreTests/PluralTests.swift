@@ -337,12 +337,12 @@ struct PluralConsistencyTests {
 
         let english = try #require(document.strings["cart.items"]?.localizations?["en"])
         #expect(english.stringUnit == nil)
-        #expect(english.variations?.plural["one"]?.stringUnit?.value == "%d item")
-        #expect(english.variations?.plural["other"]?.stringUnit?.value == "%d items")
+        #expect(english.variations?.plural?["one"]?.stringUnit?.value == "%d item")
+        #expect(english.variations?.plural?["other"]?.stringUnit?.value == "%d items")
 
         // 한국어는 other 뿐이다.
         let korean = try #require(document.strings["cart.items"]?.localizations?["ko"])
-        #expect(korean.variations?.plural.keys.sorted() == ["other"])
+        #expect(korean.variations?.plural?.keys.sorted() == ["other"])
     }
 
     /// `itemsOne` 과 `itemsOther` 를 따로 내면 부르는 쪽이 수에 따라 골라야 한다.

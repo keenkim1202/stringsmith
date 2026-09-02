@@ -20,6 +20,9 @@ extension Stringsmith {
 
                 Variables arrive as {arg1}, {arg2}. The files only record where a variable sits,
                 never what it held, so rename them in the sheet before you generate.
+
+                One table at a time. Two tables can hold the same key, and merging them would
+                make a sheet that `generate` then refuses as a duplicate.
                 """,
                 """
                 .xcstrings 파일이나 .lproj 들이 있는 디렉터리를 가리키면 됩니다.
@@ -27,6 +30,9 @@ extension Stringsmith {
 
                 변수는 {arg1}, {arg2} 로 들어갑니다. 파일에는 변수의 자리만 있고 그게 무엇이었는지는
                 남아 있지 않습니다. generate 전에 시트에서 이름을 고치세요.
+
+                한 번에 테이블 하나만 읽습니다. 서로 다른 테이블이 같은 키를 가질 수 있고, 합치면
+                generate 가 중복 키로 거부하는 시트가 됩니다.
                 """))
 
         @Argument(help: .init(stringLiteral: tr(
@@ -42,6 +48,11 @@ extension Stringsmith {
             "Source locale. .lproj folders do not record it; a String Catalog does.",
             "원문 로케일. .lproj 는 이 정보를 담지 않습니다. String Catalog 은 담고 있습니다.")))
         var source: String?
+
+        @Option(name: [.long], help: .init(stringLiteral: tr(
+            "Which .strings table to read. Others are named but not read.",
+            "읽을 .strings 테이블. 나머지는 이름만 알리고 읽지 않습니다.")))
+        var table = LocalizationImport.defaultTable
 
         @Flag(name: [.short, .long], help: .init(stringLiteral: tr(
             "List every key, not the first few.", "일부가 아니라 전부 보여줍니다.")))
@@ -67,7 +78,8 @@ extension Stringsmith {
                     """))
             }
 
-            let result = try LocalizationImport.read(path: path, sourceLocale: source)
+            let result = try LocalizationImport.read(
+                path: path, sourceLocale: source, table: table)
             guard result.keyCount > 0 else {
                 throw CLIError(tr(
                     "Found no translations in \(path).",

@@ -96,6 +96,11 @@ Variables come back as `{arg1}`, `{arg2}`. The files record where a variable sit
 held, so rename them in the sheet before you generate. The counting variable in a plural keeps
 the name `count`: `.stringsdict` has to see an integer there to pick a category at all.
 
+What a sheet cannot hold is named rather than quietly mangled: device variations, `%#@…@`
+substitutions, and the other `.strings` tables in the folder. `--table Errors` reads one of
+those instead. One table at a time, since two tables can hold the same key and merging them
+would make a sheet `generate` refuses as a duplicate.
+
 ## Sources
 
 CSV, TSV and `.xlsx` are read from disk — point at the file or let `init` find it. Excel needs no

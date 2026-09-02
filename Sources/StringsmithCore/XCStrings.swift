@@ -52,7 +52,11 @@ public struct XCStringsDocument: Codable, Sendable, Equatable {
 
     public struct Variations: Codable, Sendable, Equatable {
         /// 범주 이름 → 그 범주의 값.
-        public var plural: [String: Localization]
+        ///
+        /// 없을 수 있다. 카탈로그는 기기별 변형(`device`)도 이 자리에 담는데 이 도구는 그걸
+        /// 다루지 않는다. 필수로 두면 그런 키가 하나만 있어도 **파일 전체의 디코딩이 실패한다.**
+        /// 남이 만든 파일을 읽는 쪽이라 모르는 모양을 만나는 게 정상이다.
+        public var plural: [String: Localization]?
     }
 
     public struct StringUnit: Codable, Sendable, Equatable {
