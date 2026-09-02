@@ -1,7 +1,7 @@
 PREFIX ?= /usr/local
 BINDIR  = $(PREFIX)/bin
 APPDIR ?= $(HOME)/Applications
-VERSION ?= 0.3.0
+VERSION ?= 0.3.1
 
 APP_NAME   = StringsmithPreview
 APP_BUNDLE = .build/$(APP_NAME).app

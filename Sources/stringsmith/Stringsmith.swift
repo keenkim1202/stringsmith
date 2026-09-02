@@ -43,7 +43,7 @@ struct Stringsmith: ParsableCommand {
 
             입력은 CSV/TSV 파일 또는 Google Sheets URL 입니다. XLSX 는 이후 버전입니다.
             """),
-        version: "0.3.0",
+        version: "0.3.1",
         subcommands: [
             Init.self, Import.self, Generate.self, Validate.self, Drift.self,
             Preview.self, Auth.self,
