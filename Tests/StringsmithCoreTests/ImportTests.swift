@@ -265,7 +265,22 @@ struct ImportLprojTests {
         ])
         let result = try LocalizationImport.read(path: root)
         #expect(result.rows == [["key", "en"], ["a", "A"]])
-        #expect(result.skipped.contains { $0.contains("Errors.strings") })
+        #expect(result.skipped.contains { $0.contains("\"Errors\"") })
+    }
+
+    /// 복수형만 담은 테이블은 짝이 되는 `.strings` 없이 `.stringsdict` 하나로 존재한다.
+    /// `.strings` 만 훑으면 그런 테이블이 통째로 빠지고 아무도 모른다.
+    @Test("stringsdict 만 있는 테이블도 찾아낸다")
+    func findsStringsdictOnlyTable() throws {
+        let root = try Self.makeTree([
+            "en.lproj/Localizable.strings": "\"a\" = \"A\";\n",
+            "en.lproj/Errors.stringsdict": """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <plist version="1.0"><dict></dict></plist>
+                """,
+        ])
+        let result = try LocalizationImport.read(path: root)
+        #expect(result.skipped.contains { $0.contains("\"Errors\"") })
     }
 
     @Test("--table 로 다른 테이블을 읽는다")

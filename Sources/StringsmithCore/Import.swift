@@ -158,9 +158,9 @@ public enum LocalizationImport {
             locales.append(locale)
             let folder = (directory as NSString).appendingPathComponent(name)
 
-            for name in (try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []
-            where name.hasSuffix(".strings") && name != "\(table).strings" {
-                otherTables.insert(String(name.dropLast(".strings".count)))
+            for name in (try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? [] {
+                guard let other = tableName(of: name), other != table else { continue }
+                otherTables.insert(other)
             }
 
             let comments = readComments(in: folder, table: table)
@@ -185,14 +185,28 @@ public enum LocalizationImport {
 
         // 말없이 절반만 옮기면 없어진 걸 아무도 모른다. 이름을 대고 --table 을 알린다.
         for name in otherTables.sorted() {
+            // 파일 이름을 대지 않는다. 테이블은 `.strings` 로도 `.stringsdict` 로도
+            // 존재할 수 있어서, 하나를 골라 적으면 없는 파일을 가리키게 된다.
             skipped.append(tr(
-                "\(name).strings: another table, not read (--table \(name) reads it instead)",
-                "\(name).strings: 다른 테이블이라 읽지 않았습니다 (--table \(name) 로 읽습니다)"))
+                "table \"\(name)\": not read (--table \(name) reads it instead)",
+                "테이블 \"\(name)\": 읽지 않았습니다 (--table \(name) 로 읽습니다)"))
         }
 
         // 원문 로케일은 파일이 말해 주지 않는다. 지정이 없으면 en, 그것도 없으면 첫 번째.
         let source = sourceLocale ?? (locales.contains("en") ? "en" : locales.sorted()[0])
         return assemble(Array(byKey.values), sourceLocale: source, skipped: skipped)
+    }
+
+    /// 파일 이름에서 테이블 이름을 뽑는다. 로컬라이제이션 파일이 아니면 nil.
+    ///
+    /// `.stringsdict` 까지 보는 이유는, 복수형만 담은 테이블은 짝이 되는 `.strings` 없이
+    /// `.stringsdict` 하나로 존재하기 때문이다. `.strings` 만 훑으면 그런 테이블은
+    /// 통째로 빠지고 아무도 그 사실을 모른다.
+    static func tableName(of file: String) -> String? {
+        for suffix in [".stringsdict", ".strings"] where file.hasSuffix(suffix) {
+            return String(file.dropLast(suffix.count))
+        }
+        return nil
     }
 
     /// `<table>.strings`. 구식 property list 라서 Foundation 이 그대로 읽는다.
