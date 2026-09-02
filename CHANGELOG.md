@@ -2,7 +2,11 @@
 
 English · [한국어](CHANGELOG.ko.md)
 
-## Unreleased
+## 0.3.0
+
+The one behaviour change to know about: **failures no longer all exit `1`.** A CI script that
+branches on exit code 1 needs updating, and the table under "Checking" in the README says what
+replaced it.
 
 - **`ss import` reads what you already have.** Point it at a `.xcstrings` file or at the
   directory holding your `.lproj` folders and it writes the sheet: one row per key, one column
