@@ -2,7 +2,11 @@
 
 English · [한국어](CHANGELOG.ko.md)
 
-## Unreleased
+## 0.3.1
+
+`ss import` fixes, all of them shapes an ordinary Xcode project produces. If you imported with
+0.3.0, run it again: what came out may be short a few keys, or hold a value that reads fine and
+is not.
 
 - **`ss import` no longer chokes on files it did not write.** A device variation used to fail
   the whole catalog, since one unreadable key stopped every other key from being read.
