@@ -1,7 +1,7 @@
 PREFIX ?= /usr/local
 BINDIR  = $(PREFIX)/bin
 APPDIR ?= $(HOME)/Applications
-VERSION ?= 0.3.1
+VERSION ?= 0.4.0
 
 ## 비어 있으면 서명하지 않는다. 인증서 없는 로컬에서도 `make release` 가 돌아야 한다.
 CODESIGN_IDENTITY ?=
