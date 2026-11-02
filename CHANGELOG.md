@@ -2,6 +2,17 @@
 
 English · [한국어](CHANGELOG.ko.md)
 
+## 0.4.0
+
+The downloads are signed and notarized. Nothing in the tool itself changed.
+
+- **No more `xattr`.** The review app and the CLI binary are signed with a Developer ID and
+  notarized, so a copy downloaded through a browser opens without clearing the quarantine flag
+  by hand. The README and the release notes dropped that line.
+- **A release fails rather than ship unsigned.** The release workflow needs five signing secrets
+  and stops before building if one is missing. Notes promising a signed app next to an unsigned
+  download is the worse outcome.
+
 ## 0.3.1
 
 `ss import` fixes, all of them shapes an ordinary Xcode project produces. If you imported with
