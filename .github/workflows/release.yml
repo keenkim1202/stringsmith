@@ -17,6 +17,12 @@ jobs:
     runs-on: macos-15
     outputs:
       tag: ${{ steps.version.outputs.tag }}
+    env:
+      APPLE_CERT_P12: ${{ secrets.APPLE_CERT_P12 }}
+      APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+      APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+      APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+      APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
     steps:
       - uses: actions/checkout@v4
 
@@ -46,8 +52,77 @@ jobs:
       - name: Test
         run: swift test
 
+      # 러너 전용 임시 키체인에 넣는다. 러너는 매번 버려지지만, login 키체인을 건드리면
+      # 암호가 로그에 남을 여지가 생긴다.
+      - name: Import signing certificate
+        run: |
+          set -euo pipefail
+          # 서명을 건너뛰고 올리는 길은 두지 않는다. 릴리스 노트와 README 가 서명·공증을
+          # 전제로 쓰여 있어서, 서명 없이 나가면 받는 쪽이 열지 못하는데 안내는 열린다고 말한다.
+          for name in APPLE_CERT_P12 APPLE_CERT_PASSWORD APPLE_API_KEY_P8 \
+                      APPLE_API_KEY_ID APPLE_API_ISSUER_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::시크릿 $name 이 비어 있습니다. 서명 없이는 릴리스하지 않습니다."
+              exit 1
+            fi
+          done
+
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          password="$(uuidgen)"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+
+          echo "$APPLE_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$keychain" \
+            -P "$APPLE_CERT_PASSWORD" -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/cert.p12"
+          # 이게 없으면 codesign 이 키를 쓸 때마다 GUI 암호 창을 띄우려 하고, CI 에서는 멈춘다.
+          security set-key-partition-list \
+            -S apple-tool:,apple: -s -k "$password" "$keychain" >/dev/null
+          # codesign 은 검색 목록에 있는 키체인만 본다.
+          security list-keychains -d user -s "$keychain" login.keychain-db
+
+          identity="$(security find-identity -v -p codesigning "$keychain" \
+            | sed -n 's/.*"\(Developer ID Application:.*\)"/\1/p' | head -1)"
+          if [ -z "$identity" ]; then
+            echo "::error::Developer ID Application 인증서를 찾지 못했습니다."
+            security find-identity -v -p codesigning "$keychain" || true
+            exit 1
+          fi
+          echo "CODESIGN_IDENTITY=$identity" >> "$GITHUB_ENV"
+
+      # CODESIGN_IDENTITY 가 환경에 있으면 Makefile 의 sign 타깃이 패키징 전에 서명한다.
       - name: Build release artifacts
         run: make release VERSION="${{ steps.version.outputs.version }}"
+
+      - name: Notarize
+        run: |
+          set -euo pipefail
+          key="$RUNNER_TEMP/notary.p8"
+          echo "$APPLE_API_KEY_P8" | base64 --decode > "$key"
+          trap 'rm -f "$key"' EXIT
+
+          submit() {
+            xcrun notarytool submit "$1" --wait --timeout 30m \
+              --key "$key" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER_ID"
+          }
+
+          submit .build/dist/StringsmithPreview-macOS.zip
+          # 티켓은 번들에만 붙는다. 붙여두면 받는 쪽이 오프라인이어도 열린다.
+          xcrun stapler staple .build/StringsmithPreview.app
+          # 티켓이 든 번들로 다시 묶는다. 올라가는 zip 은 이쪽이어야 한다.
+          rm -f .build/dist/StringsmithPreview-macOS.zip
+          ditto -c -k --keepParent \
+            .build/StringsmithPreview.app .build/dist/StringsmithPreview-macOS.zip
+
+          # 맨 실행 파일에는 티켓을 붙일 수 없다. 공증은 서명에 등록되므로 Gatekeeper 가
+          # 온라인으로 확인한다. tar.gz 안의 바이너리는 이미 서명된 그 파일이다.
+          zip -jq "$RUNNER_TEMP/cli.zip" .build/universal/stringsmith
+          submit "$RUNNER_TEMP/cli.zip"
+
+          # 받는 쪽이 보는 것과 같은 판정을 여기서 한 번 받아본다.
+          spctl --assess --type execute --verbose=2 .build/StringsmithPreview.app
 
       - name: Write release notes
         run: |
@@ -57,13 +132,7 @@ jobs:
           ### 번역 확인 앱
 
           `StringsmithPreview-macOS.zip` 을 받아 압축을 풀고 `~/Applications` 또는
-          `/Applications` 에 넣으세요.
-
-          > **서명되지 않은 앱입니다.** 처음 열 때 macOS 가 막습니다. 다음 한 줄로 해제하세요:
-          >
-          > ```bash
-          > xattr -dr com.apple.quarantine ~/Applications/StringsmithPreview.app
-          > ```
+          `/Applications` 에 넣으세요. 서명·공증된 앱이라 그냥 열립니다.
 
           ### CLI
 
@@ -79,7 +148,6 @@ jobs:
           tar -xzf stringsmith-macOS.tar.gz
           sudo mv stringsmith /usr/local/bin/
           sudo ln -sf /usr/local/bin/stringsmith /usr/local/bin/ss
-          xattr -dr com.apple.quarantine /usr/local/bin/stringsmith
           ```
 
           Intel · Apple Silicon 유니버설 바이너리입니다. macOS 13 이상이 필요합니다.

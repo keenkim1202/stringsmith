@@ -3,6 +3,9 @@ BINDIR  = $(PREFIX)/bin
 APPDIR ?= $(HOME)/Applications
 VERSION ?= 0.3.1
 
+## 비어 있으면 서명하지 않는다. 인증서 없는 로컬에서도 `make release` 가 돌아야 한다.
+CODESIGN_IDENTITY ?=
+
 APP_NAME   = StringsmithPreview
 APP_BUNDLE = .build/$(APP_NAME).app
 DIST       = .build/dist
@@ -15,7 +18,7 @@ BUILD_DIR ?= .build/release
 BIN        = $(BUILD_DIR)/stringsmith
 APP_BIN    = $(BUILD_DIR)/$(APP_NAME)
 
-.PHONY: build universal app install install-app release uninstall test clean
+.PHONY: build universal app sign install install-app release uninstall test clean
 
 build:
 	swift build -c release
@@ -72,6 +75,24 @@ app:
 	  '</dict></plist>' > "$(APP_BUNDLE)/Contents/Info.plist"
 	@echo "  ✅ $(APP_BUNDLE)"
 
+## Developer ID 로 서명한다. CODESIGN_IDENTITY 가 비어 있으면 아무것도 하지 않는다.
+##
+## lipo 뒤에 서명해야 한다. 합치기 전에 서명하면 lipo 가 떼어낸다. 앱 번들은 Info.plist 까지
+## 들어간 뒤에 서명한다. 서명 범위에 plist 가 포함되기 때문이다.
+## `--options runtime`(hardened runtime) 은 공증의 전제 조건이다.
+sign:
+	@if [ -z "$(CODESIGN_IDENTITY)" ]; then \
+		echo "  ⏭  서명 건너뜀 (CODESIGN_IDENTITY 가 비어 있습니다)"; \
+	else \
+		set -e; \
+		for target in "$(FAT_DIR)/stringsmith" "$(APP_BUNDLE)"; do \
+			codesign --force --timestamp --options runtime \
+				--sign "$(CODESIGN_IDENTITY)" "$$target"; \
+			codesign --verify --strict "$$target"; \
+		done; \
+		echo "  ✅ 서명: $(CODESIGN_IDENTITY)"; \
+	fi
+
 ## CLI 를 설치한다. `ss` 짧은 별칭도 함께 만든다.
 ##
 ## /usr/local/bin 은 보통 root 소유라 sudo 가 필요하다. sudo 없이 쓰려면
@@ -113,6 +134,7 @@ install-app: build app
 release:
 	$(MAKE) universal
 	$(MAKE) app BUILD_DIR=$(FAT_DIR)
+	$(MAKE) sign
 	rm -rf "$(DIST)" && mkdir -p "$(DIST)"
 	ditto -c -k --keepParent "$(APP_BUNDLE)" "$(DIST)/$(APP_NAME)-macOS.zip"
 	tar -czf "$(DIST)/stringsmith-macOS.tar.gz" -C "$(FAT_DIR)" stringsmith
