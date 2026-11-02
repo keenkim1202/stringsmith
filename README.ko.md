@@ -41,20 +41,18 @@ CLI 입니다. `stringsmith` 와 짧은 이름 `ss` 가 함께 깔립니다. 유
 
 ```bash
 unzip StringsmithPreview-macOS.zip -d ~/Applications
-xattr -dr com.apple.quarantine ~/Applications/StringsmithPreview.app
 ```
 
-서명되지 않은 앱이라서 `xattr` 줄이 필요합니다.
+서명·공증된 앱이라 Gatekeeper 가 막지 않습니다.
 
 Homebrew 없이 받으실 경우, 같은 페이지에서 `stringsmith-macOS.tar.gz` 를 받습니다:
 
 ```bash
 tar -xzf stringsmith-macOS.tar.gz
 sudo mv stringsmith /usr/local/bin/ && sudo ln -sf /usr/local/bin/stringsmith /usr/local/bin/ss
-xattr -dr com.apple.quarantine /usr/local/bin/stringsmith
 ```
 
-소스에서 빌드하려면 `make install`(CLI) 과 `make install-app`(확인 앱). `xattr` 이 필요 없습니다.
+소스에서 빌드하려면 `make install`(CLI) 과 `make install-app`(확인 앱).
 
 ## 사용
 

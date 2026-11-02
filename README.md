@@ -41,20 +41,18 @@ The review app is a separate download and only `ss preview` needs it. Take
 
 ```bash
 unzip StringsmithPreview-macOS.zip -d ~/Applications
-xattr -dr com.apple.quarantine ~/Applications/StringsmithPreview.app
 ```
 
-The app is unsigned, which is what the `xattr` line clears.
+Signed and notarized, so it opens without a Gatekeeper prompt.
 
 Without Homebrew, take `stringsmith-macOS.tar.gz` from the same page:
 
 ```bash
 tar -xzf stringsmith-macOS.tar.gz
 sudo mv stringsmith /usr/local/bin/ && sudo ln -sf /usr/local/bin/stringsmith /usr/local/bin/ss
-xattr -dr com.apple.quarantine /usr/local/bin/stringsmith
 ```
 
-Or from source: `make install` (CLI) and `make install-app` (the review app). No `xattr` needed.
+Or from source: `make install` (CLI) and `make install-app` (the review app).
 
 ## Use
 
